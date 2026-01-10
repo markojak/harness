@@ -1,7 +1,7 @@
 {
   "name": "harness-ai",
   "version": "0.1.0",
-  "description": "Terminal-style dashboard for Claude Code sessions",
+  "description": "Universal dashboard for AI coding agents - Claude Code, Codex CLI, OpenCode",
   "type": "module",
   "bin": {
     "harness": "./bin/cli.js"
@@ -20,18 +20,25 @@
   "keywords": [
     "claude",
     "claude-code",
+    "codex",
+    "opencode",
+    "openai",
+    "anthropic",
     "ai",
+    "coding-assistant",
     "dashboard",
     "sessions",
     "developer-tools",
-    "terminal"
+    "terminal",
+    "cli"
   ],
-  "author": "",
+  "author": "Marko Jak",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/markojak/harness-ai"
+    "url": "https://github.com/markojak/harness"
   },
+  "homepage": "https://github.com/markojak/harness#readme",
   "engines": {
     "node": ">=20"
   },

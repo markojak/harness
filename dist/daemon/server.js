@@ -20,15 +20,17 @@ export class StreamServer {
     constructor(options = {}) {
         this.port = options.port ?? DEFAULT_PORT;
         // Use in-memory storage during development (no dataDir = in-memory)
+        const host = process.env.HOST || "127.0.0.1";
         this.server = new DurableStreamTestServer({
             port: this.port,
-            host: "127.0.0.1",
+            host,
         });
-        this.streamUrl = `http://127.0.0.1:${this.port}${SESSIONS_STREAM_PATH}`;
+        this.streamUrl = `http://${host}:${this.port}${SESSIONS_STREAM_PATH}`;
     }
     async start() {
         await this.server.start();
-        log("Server", `Durable Streams server running on http://127.0.0.1:${this.port}`);
+        const host = process.env.HOST || "127.0.0.1";
+        log("Server", `Durable Streams server running on http://${host}:${this.port}`);
         // Create or connect to the sessions stream
         try {
             this.stream = await DurableStream.create({

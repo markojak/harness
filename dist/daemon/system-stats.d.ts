@@ -10,6 +10,7 @@ interface HarnessConfig {
         opencode: ProviderConfig;
     };
     port: number;
+    host: string;
     resumeFlags: string;
 }
 export declare function getConfig(): HarnessConfig;

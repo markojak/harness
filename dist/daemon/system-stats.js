@@ -66,6 +66,7 @@ const DEFAULT_CONFIG = {
         },
     },
     port: 4450,
+    host: "127.0.0.1",
     resumeFlags: "",
 };
 export function getConfig() {
@@ -454,7 +455,8 @@ export function startStatsServer(port = 4451) {
         res.writeHead(404);
         res.end("Not found");
     });
-    server.listen(port, "127.0.0.1", () => {
+    const host = process.env.HOST || "127.0.0.1";
+    server.listen(port, host, () => {
         // Silent start - logged by main serve.ts
     });
 }

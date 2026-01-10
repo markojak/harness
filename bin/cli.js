@@ -156,6 +156,7 @@ ${c.bold}Commands:${c.reset}
 
 ${c.bold}Start Options:${c.reset}
   --port <n>          Port for daemon (default: 4450)
+  --host <addr>       Bind address (default: 127.0.0.1, use 0.0.0.0 for network)
   --no-open           Don't open browser
   --headless          API only, no UI
 
@@ -931,6 +932,7 @@ async function cmdIndex(flags) {
 
 async function cmdStart(flags) {
   const port = parseInt(flags.port) || 4450;
+  const host = flags.host || '127.0.0.1';
   const noOpen = flags['no-open'];
   const headless = flags.headless;
   const watchDir = flags.watch;
@@ -944,6 +946,7 @@ async function cmdStart(flags) {
   // Build environment
   const env = { ...process.env };
   if (port !== 4450) env.PORT = String(port);
+  if (host !== '127.0.0.1') env.HOST = host;
   // Note: --watch is deprecated, use config file for custom paths
   if (watchDir) {
     console.log(`${c.yellow}Warning:${c.reset} --watch is deprecated. Use ~/.harness/config.json to set provider paths.`);
@@ -966,7 +969,11 @@ async function cmdStart(flags) {
       stopSpinner(true);
       
       const uiPort = port + 1;
-      console.log(`${c.green}✓${c.reset} Dashboard: ${c.cyan}http://localhost:${uiPort}${c.reset}`);
+      const displayHost = host === '0.0.0.0' ? 'localhost' : host;
+      console.log(`${c.green}✓${c.reset} Dashboard: ${c.cyan}http://${displayHost}:${uiPort}${c.reset}`);
+      if (host === '0.0.0.0') {
+        console.log(`${c.dim}  Listening on all interfaces${c.reset}`);
+      }
       
       if (!noOpen && !headless) {
         // Open browser

@@ -419,10 +419,15 @@ apt install ripgrep
 - [x] Commit finder
 - [x] CLI tools
 - [x] Model tracking for OpenCode
+- [x] Cost tracking (Claude only currently)
 - [ ] Session detail view
 - [ ] Session replay
-- [ ] Cost tracking per provider
+- [ ] Cost tracking for Codex and OpenCode
 - [ ] Plugin API for custom providers
+
+### Current Limitations
+
+- **Cost tracking** — Currently only tracks costs for Claude Code sessions. Codex and OpenCode cost tracking coming soon.
 
 ---
 

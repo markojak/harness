@@ -18,6 +18,8 @@ export interface IndexedSession {
     lastActivityAt: string;
     messageCount: number;
     isActive: boolean;
+    isAgent: boolean;
+    parentSessionId?: string | null;
     modelProvider?: string | null;
     modelId?: string | null;
 }

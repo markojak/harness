@@ -19,6 +19,8 @@ export interface SearchResult {
     provider?: string;
     modelProvider?: string | null;
     modelId?: string | null;
+    isAgent?: boolean;
+    parentSessionId?: string | null;
 }
 /**
  * Index a session for search
@@ -40,6 +42,8 @@ export declare function indexSession(session: {
     provider?: string;
     modelProvider?: string | null;
     modelId?: string | null;
+    isAgent?: boolean;
+    parentSessionId?: string | null;
 }): void;
 /**
  * Search sessions using FTS5
@@ -72,6 +76,8 @@ export declare function bulkIndexSessions(sessions: Array<{
     provider?: string;
     modelProvider?: string | null;
     modelId?: string | null;
+    isAgent?: boolean;
+    parentSessionId?: string | null;
 }>): number;
 /**
  * Clear search index

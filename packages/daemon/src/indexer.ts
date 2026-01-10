@@ -39,6 +39,8 @@ export interface IndexedSession {
   lastActivityAt: string;
   messageCount: number;
   isActive: boolean;        // has activity in last 5 min
+  isAgent: boolean;         // is this a sub-agent session
+  parentSessionId?: string | null; // parent session if agent
   // For OpenCode: track actual model used
   modelProvider?: string | null; // e.g., "anthropic", "openai", "google"
   modelId?: string | null;       // e.g., "claude-3-5-sonnet", "gpt-4o", "gemini-2.0-flash"
@@ -202,7 +204,7 @@ export async function indexAllSessions(): Promise<{
 
       const cwd = decodeEncodedDir(encodedDir);
       const files = await readdir(dirPath).catch(() => []);
-      const jsonlFiles = files.filter(f => f.endsWith(".jsonl") && !f.startsWith("agent-"));
+      const jsonlFiles = files.filter(f => f.endsWith(".jsonl"));
 
       for (const file of jsonlFiles) {
         const filepath = join(dirPath, file);
@@ -233,6 +235,17 @@ export async function indexAllSessions(): Promise<{
         const lastActivity = new Date(metadata.lastActivityAt).getTime();
         const isActive = Date.now() - lastActivity < 5 * 60 * 1000;
 
+        // Check if this is an agent/sub-agent session
+        const isAgent = file.startsWith("agent-");
+        // Try to extract parent session ID from agent filename (agent-{parentId}-{agentId}.jsonl)
+        let parentSessionId: string | null = null;
+        if (isAgent) {
+          const match = file.match(/^agent-([a-f0-9-]+)-/);
+          if (match) {
+            parentSessionId = match[1];
+          }
+        }
+
         const session: IndexedSession = {
           sessionId: metadata.sessionId,
           provider: "claude",
@@ -249,6 +262,8 @@ export async function indexAllSessions(): Promise<{
           lastActivityAt: metadata.lastActivityAt,
           messageCount: metadata.messageCount,
           isActive,
+          isAgent,
+          parentSessionId,
         };
 
         sessions.push(session);
@@ -443,6 +458,8 @@ async function indexCodexSessions(
           lastActivityAt: lastTimestamp,
           messageCount: lines.length,
           isActive,
+          isAgent: false,
+          parentSessionId: null,
         };
 
         sessions.push(session);
@@ -565,6 +582,8 @@ async function indexOpenCodeSessions(
             lastActivityAt,
             messageCount,
             isActive,
+            isAgent: false,
+            parentSessionId: null,
             modelProvider,
             modelId,
           };

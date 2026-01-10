@@ -54,6 +54,14 @@ try {
     db.exec(`ALTER TABLE sessions_index ADD COLUMN modelId TEXT`);
 }
 catch { }
+try {
+    db.exec(`ALTER TABLE sessions_index ADD COLUMN isAgent INTEGER DEFAULT 0`);
+}
+catch { }
+try {
+    db.exec(`ALTER TABLE sessions_index ADD COLUMN parentSessionId TEXT`);
+}
+catch { }
 /**
  * Index a session for search
  */
@@ -62,10 +70,10 @@ export function indexSession(session) {
     // Upsert into sessions_index
     const upsert = db.prepare(`
     INSERT OR REPLACE INTO sessions_index 
-    (sessionId, projectId, projectName, gitRepoId, gitRepoUrl, cwd, gitBranch, originalPrompt, goal, startedAt, lastActivityAt, messageCount, indexed_at, provider, modelProvider, modelId)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (sessionId, projectId, projectName, gitRepoId, gitRepoUrl, cwd, gitBranch, originalPrompt, goal, startedAt, lastActivityAt, messageCount, indexed_at, provider, modelProvider, modelId, isAgent, parentSessionId)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
-    upsert.run(session.sessionId, session.projectId, session.projectName, session.gitRepoId || null, session.gitRepoUrl || null, session.cwd, session.gitBranch || null, session.originalPrompt, session.goal || null, session.startedAt, session.lastActivityAt, session.messageCount, now, session.provider || "claude", session.modelProvider || null, session.modelId || null);
+    upsert.run(session.sessionId, session.projectId, session.projectName, session.gitRepoId || null, session.gitRepoUrl || null, session.cwd, session.gitBranch || null, session.originalPrompt, session.goal || null, session.startedAt, session.lastActivityAt, session.messageCount, now, session.provider || "claude", session.modelProvider || null, session.modelId || null, session.isAgent ? 1 : 0, session.parentSessionId || null);
     // Delete old FTS entry if exists
     db.prepare("DELETE FROM sessions_fts WHERE sessionId = ?").run(session.sessionId);
     // Insert into FTS

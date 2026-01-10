@@ -57,6 +57,12 @@ try {
 try {
   db.exec(`ALTER TABLE sessions_index ADD COLUMN modelId TEXT`);
 } catch {}
+try {
+  db.exec(`ALTER TABLE sessions_index ADD COLUMN isAgent INTEGER DEFAULT 0`);
+} catch {}
+try {
+  db.exec(`ALTER TABLE sessions_index ADD COLUMN parentSessionId TEXT`);
+} catch {}
 
 export interface SearchResult {
   sessionId: string;
@@ -76,6 +82,8 @@ export interface SearchResult {
   provider?: string;
   modelProvider?: string | null;
   modelId?: string | null;
+  isAgent?: boolean;
+  parentSessionId?: string | null;
 }
 
 /**
@@ -98,14 +106,16 @@ export function indexSession(session: {
   provider?: string;
   modelProvider?: string | null;
   modelId?: string | null;
+  isAgent?: boolean;
+  parentSessionId?: string | null;
 }): void {
   const now = new Date().toISOString();
   
   // Upsert into sessions_index
   const upsert = db.prepare(`
     INSERT OR REPLACE INTO sessions_index 
-    (sessionId, projectId, projectName, gitRepoId, gitRepoUrl, cwd, gitBranch, originalPrompt, goal, startedAt, lastActivityAt, messageCount, indexed_at, provider, modelProvider, modelId)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    (sessionId, projectId, projectName, gitRepoId, gitRepoUrl, cwd, gitBranch, originalPrompt, goal, startedAt, lastActivityAt, messageCount, indexed_at, provider, modelProvider, modelId, isAgent, parentSessionId)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   
   upsert.run(
@@ -124,7 +134,9 @@ export function indexSession(session: {
     now,
     session.provider || "claude",
     session.modelProvider || null,
-    session.modelId || null
+    session.modelId || null,
+    session.isAgent ? 1 : 0,
+    session.parentSessionId || null
   );
   
   // Delete old FTS entry if exists
@@ -241,6 +253,8 @@ export function bulkIndexSessions(sessions: Array<{
   provider?: string;
   modelProvider?: string | null;
   modelId?: string | null;
+  isAgent?: boolean;
+  parentSessionId?: string | null;
 }>): number {
   let indexed = 0;
   

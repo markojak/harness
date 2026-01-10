@@ -160,6 +160,21 @@ export function SessionCard({ session, disableHover, onClick }: SessionCardProps
                 modelId={session.modelId}
                 modelProvider={session.modelProvider}
               />
+              {session.isAgent && (
+                <Text 
+                  size="1" 
+                  style={{ 
+                    color: "var(--accent-purple)", 
+                    fontSize: "9px",
+                    padding: "1px 4px",
+                    borderRadius: "3px",
+                    backgroundColor: "rgba(168, 85, 247, 0.15)",
+                    fontWeight: 500,
+                  }}
+                >
+                  SUB
+                </Text>
+              )}
               <Text size="1" style={{ color: status.color, fontWeight: 500 }}>
                 ● {status.label}
               </Text>

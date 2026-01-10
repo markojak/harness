@@ -63,6 +63,9 @@ export const SessionSchema = z.object({
   // For OpenCode: track actual model used (can be Gemini, Claude, GPT, etc.)
   modelProvider: z.string().nullable().optional(), // e.g., "anthropic", "openai", "google"
   modelId: z.string().nullable().optional(), // e.g., "claude-3-5-sonnet", "gpt-4o", "gemini-2.0-flash"
+  // Sub-agent tracking
+  isAgent: z.boolean().optional(), // Is this a sub-agent session
+  parentSessionId: z.string().nullable().optional(), // Parent session ID if sub-agent
 });
 export type Session = z.infer<typeof SessionSchema>;
 

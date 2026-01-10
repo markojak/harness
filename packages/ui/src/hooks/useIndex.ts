@@ -20,6 +20,9 @@ export interface IndexedSession {
   lastActivityAt: string;
   messageCount: number;
   isActive: boolean;
+  // Sub-agent tracking
+  isAgent?: boolean;
+  parentSessionId?: string | null;
 }
 
 export interface IndexedProject {

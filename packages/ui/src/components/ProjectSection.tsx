@@ -2,12 +2,18 @@
  * Project section - handles both active (Kanban) and dormant (session list) views
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { KanbanColumn } from "./KanbanColumn";
 import { SessionCard } from "./SessionCard";
 import type { IndexedProject, IndexedSession } from "../hooks/useIndex";
 import type { Session, SessionStatus } from "../data/schema";
+
+// Structure for grouping sessions with their sub-agents
+interface SessionGroup {
+  session: IndexedSession;
+  agents: IndexedSession[];
+}
 
 interface ProjectSectionProps {
   project: IndexedProject;
@@ -74,7 +80,128 @@ function toSessionCardFormat(indexed: IndexedSession): Session {
     gitRepoId: indexed.gitRepoId ?? null,
     gitRepoUrl: indexed.gitRepoUrl ?? null,
     pr: null,
+    isAgent: indexed.isAgent,
+    parentSessionId: indexed.parentSessionId,
   };
+}
+
+/**
+ * Group sessions with their sub-agents
+ */
+function groupSessionsWithAgents(sessions: IndexedSession[]): SessionGroup[] {
+  // Separate parent sessions and agent sessions
+  const parentSessions = sessions.filter(s => !s.isAgent);
+  const agentSessions = sessions.filter(s => s.isAgent === true);
+  
+  // Create a map of parent ID to agents
+  const agentsByParent = new Map<string, IndexedSession[]>();
+  for (const agent of agentSessions) {
+    if (agent.parentSessionId) {
+      const agents = agentsByParent.get(agent.parentSessionId) || [];
+      agents.push(agent);
+      agentsByParent.set(agent.parentSessionId, agents);
+    }
+  }
+  
+  // Build groups
+  const groups: SessionGroup[] = parentSessions.map(session => ({
+    session,
+    agents: agentsByParent.get(session.sessionId) || [],
+  }));
+  
+  // Add orphaned agents (no parent found in this project) as standalone
+  const assignedAgentIds = new Set<string>();
+  for (const agents of agentsByParent.values()) {
+    for (const agent of agents) {
+      assignedAgentIds.add(agent.sessionId);
+    }
+  }
+  const orphanedAgents = agentSessions.filter(a => !assignedAgentIds.has(a.sessionId));
+  for (const agent of orphanedAgents) {
+    groups.push({ session: agent, agents: [] });
+  }
+  
+  return groups;
+}
+
+/**
+ * Session card with expandable sub-agents
+ */
+function SessionWithAgents({ 
+  group, 
+  onSessionClick 
+}: { 
+  group: SessionGroup; 
+  onSessionClick?: (session: IndexedSession) => void;
+}) {
+  const [agentsExpanded, setAgentsExpanded] = useState(false);
+  const hasAgents = group.agents.length > 0;
+  
+  return (
+    <Box>
+      {/* Main session card with agent toggle */}
+      <Box style={{ position: "relative" }}>
+        <Box
+          onClick={() => onSessionClick?.(group.session)}
+          style={{ cursor: onSessionClick ? "pointer" : "default" }}
+        >
+          <SessionCard
+            session={toSessionCardFormat(group.session)}
+            disableHover={false}
+          />
+        </Box>
+        
+        {/* Agent expand toggle */}
+        {hasAgents && (
+          <Box
+            onClick={(e) => {
+              e.stopPropagation();
+              setAgentsExpanded(!agentsExpanded);
+            }}
+            style={{
+              position: "absolute",
+              top: "8px",
+              right: "8px",
+              padding: "2px 6px",
+              borderRadius: "4px",
+              backgroundColor: "var(--bg-tertiary)",
+              cursor: "pointer",
+              fontSize: "10px",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border-subtle)",
+              userSelect: "none",
+            }}
+            title={agentsExpanded ? "Hide sub-agents" : `Show ${group.agents.length} sub-agent${group.agents.length > 1 ? 's' : ''}`}
+          >
+            {agentsExpanded ? "−" : "+"} {group.agents.length}
+          </Box>
+        )}
+      </Box>
+      
+      {/* Agent sessions (collapsed by default) */}
+      {hasAgents && agentsExpanded && (
+        <Flex direction="column" gap="1" ml="4" mt="1" style={{ borderLeft: "2px solid var(--accent-purple)" }}>
+          {group.agents.map((agent) => (
+            <Box
+              key={agent.sessionId}
+              onClick={() => onSessionClick?.(agent)}
+              style={{ 
+                cursor: onSessionClick ? "pointer" : "default",
+                paddingLeft: "12px",
+              }}
+            >
+              <SessionCard
+                session={{
+                  ...toSessionCardFormat(agent),
+                }}
+                disableHover={false}
+              />
+            </Box>
+          ))}
+        </Flex>
+      )}
+    </Box>
+  );
 }
 
 export function ProjectSection({ project, sessions, liveSessions, onSessionClick }: ProjectSectionProps) {
@@ -181,7 +308,11 @@ export function ProjectSection({ project, sessions, liveSessions, onSessionClick
   }
 
   // Dormant project - show session cards
-  const displaySessions = expanded ? sessions : sessions.slice(0, 3);
+  // Group sessions with their sub-agents
+  const sessionGroups = useMemo(() => groupSessionsWithAgents(sessions), [sessions]);
+  const parentCount = sessionGroups.filter(g => !g.session.isAgent).length;
+  const agentCount = sessions.filter(s => s.isAgent === true).length;
+  const displayGroups = expanded ? sessionGroups : sessionGroups.slice(0, 3);
 
   return (
     <Box mb="4" pb="4" style={{ borderBottom: "1px solid var(--border-subtle)" }}>
@@ -217,7 +348,10 @@ export function ProjectSection({ project, sessions, liveSessions, onSessionClick
           </Text>
         )}
         <Text size="1" style={{ color: "var(--text-tertiary)" }}>
-          {project.sessionCount} session{project.sessionCount !== 1 ? "s" : ""}
+          {parentCount} session{parentCount !== 1 ? "s" : ""}
+          {agentCount > 0 && (
+            <span style={{ color: "var(--accent-purple)" }}> +{agentCount} sub</span>
+          )}
         </Text>
         <Text size="1" style={{ color: "var(--text-tertiary)" }}>
           · {formatTimeAgo(project.lastActivityAt)}
@@ -227,19 +361,14 @@ export function ProjectSection({ project, sessions, liveSessions, onSessionClick
       {/* Session cards */}
       {expanded && (
         <Flex direction="column" gap="2" mt="2">
-          {displaySessions.map((session) => (
-            <Box
-              key={session.sessionId}
-              onClick={() => onSessionClick?.(session)}
-              style={{ cursor: onSessionClick ? "pointer" : "default" }}
-            >
-              <SessionCard
-                session={toSessionCardFormat(session)}
-                disableHover={false}
-              />
-            </Box>
+          {displayGroups.map((group) => (
+            <SessionWithAgents
+              key={group.session.sessionId}
+              group={group}
+              onSessionClick={onSessionClick}
+            />
           ))}
-          {sessions.length > displaySessions.length && (
+          {sessionGroups.length > displayGroups.length && (
             <Text
               size="1"
               style={{
@@ -250,7 +379,7 @@ export function ProjectSection({ project, sessions, liveSessions, onSessionClick
               }}
               onClick={() => setExpanded(true)}
             >
-              +{sessions.length - displaySessions.length} more sessions
+              +{sessionGroups.length - displayGroups.length} more sessions
             </Text>
           )}
         </Flex>

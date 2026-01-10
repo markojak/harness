@@ -1,0 +1,806 @@
+#!/usr/bin/env node
+
+import { spawn, execSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+
+// Colors
+const c = {
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  dim: '\x1b[2m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  cyan: '\x1b[36m',
+  red: '\x1b[31m',
+  gray: '\x1b[90m',
+};
+
+const SPINNER_FRAMES = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
+let spinnerFrame = 0;
+let spinnerInterval = null;
+
+function startSpinner(message) {
+  process.stdout.write(`${c.cyan}${SPINNER_FRAMES[0]}${c.reset} ${message}`);
+  spinnerInterval = setInterval(() => {
+    spinnerFrame = (spinnerFrame + 1) % SPINNER_FRAMES.length;
+    process.stdout.write(`\r${c.cyan}${SPINNER_FRAMES[spinnerFrame]}${c.reset} ${message}`);
+  }, 80);
+}
+
+function stopSpinner(success = true) {
+  if (spinnerInterval) {
+    clearInterval(spinnerInterval);
+    spinnerInterval = null;
+    const icon = success ? `${c.green}✓${c.reset}` : `${c.red}✗${c.reset}`;
+    process.stdout.write(`\r${icon}\n`);
+  }
+}
+
+// Parse CLI arguments
+function parseArgs(args) {
+  const result = {
+    command: null,
+    flags: {},
+    positional: [],
+  };
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    
+    if (arg.startsWith('--')) {
+      const key = arg.slice(2);
+      const next = args[i + 1];
+      if (next && !next.startsWith('-')) {
+        result.flags[key] = next;
+        i++;
+      } else {
+        result.flags[key] = true;
+      }
+    } else if (arg.startsWith('-')) {
+      const key = arg.slice(1);
+      result.flags[key] = true;
+    } else if (!result.command) {
+      result.command = arg;
+    } else {
+      result.positional.push(arg);
+    }
+  }
+
+  return result;
+}
+
+// Get package version
+function getVersion() {
+  try {
+    const pkgPath = join(__dirname, '../package.json');
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'));
+    return pkg.version;
+  } catch {
+    return '0.0.0';
+  }
+}
+
+// Config file path
+const CONFIG_PATH = join(process.env.HOME || '', '.harness', 'config.json');
+const DATA_DIR = join(process.env.HOME || '', '.harness');
+const CLAUDE_PROJECTS_DIR = join(process.env.HOME || '', '.claude', 'projects');
+
+function ensureDataDir() {
+  if (!existsSync(DATA_DIR)) {
+    mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
+
+function loadConfig() {
+  try {
+    if (existsSync(CONFIG_PATH)) {
+      return JSON.parse(readFileSync(CONFIG_PATH, 'utf-8'));
+    }
+  } catch {}
+  return {};
+}
+
+function saveConfig(config) {
+  ensureDataDir();
+  writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+}
+
+// ============= COMMANDS =============
+
+async function cmdHelp() {
+  console.log(`
+${c.green}▪ harness${c.reset} - Claude Code Session Tracker
+
+${c.bold}Usage:${c.reset}
+  harness [command] [options]
+
+${c.bold}Commands:${c.reset}
+  ${c.cyan}start${c.reset}             Start dashboard (default)
+  ${c.cyan}stats${c.reset}             Show quick stats
+  ${c.cyan}sessions${c.reset}          List recent sessions
+  ${c.cyan}search${c.reset} <query>    Search sessions
+  ${c.cyan}export${c.reset} <id>       Export session to markdown
+  ${c.cyan}doctor${c.reset}            Check system health
+  ${c.cyan}config${c.reset}            Show/edit configuration
+  ${c.cyan}index${c.reset}             Manage search index
+  ${c.cyan}version${c.reset}           Show version
+  ${c.cyan}help${c.reset}              Show this help
+
+${c.bold}Start Options:${c.reset}
+  --port <n>          Port for daemon (default: 4450)
+  --no-open           Don't open browser
+  --headless          API only, no UI
+  --watch <dir>       Watch custom projects directory
+
+${c.bold}Filter Options:${c.reset}
+  --project <name>    Filter by project name
+  --since <time>      Filter by time (e.g., 24h, 7d, 1w)
+  --active            Only show active sessions
+  --branch <name>     Filter by git branch
+
+${c.bold}Output Options:${c.reset}
+  --json              Output as JSON
+
+${c.bold}Examples:${c.reset}
+  harness                     Start dashboard
+  harness stats               Quick stats overview
+  harness sessions --since 7d Sessions from last week
+  harness search "auth"       Search for auth-related sessions
+  harness doctor              Check if everything works
+`);
+}
+
+async function cmdVersion() {
+  console.log(`harness v${getVersion()}`);
+}
+
+async function cmdStats(flags) {
+  const useJson = flags.json;
+  
+  try {
+    // Try to get stats from running daemon first
+    const response = await fetch('http://127.0.0.1:4451/system-stats').catch(() => null);
+    
+    let stats;
+    if (response?.ok) {
+      stats = await response.json();
+    } else {
+      // Calculate stats directly
+      stats = await calculateStatsDirectly();
+    }
+
+    if (useJson) {
+      console.log(JSON.stringify(stats, null, 2));
+      return;
+    }
+
+    console.log(`
+${c.green}▪ harness${c.reset} stats
+
+${c.bold}Sessions${c.reset}
+  Total indexed:  ${stats.sessionCount || '—'}
+  Active now:     ${stats.activeCount || 0}
+  Projects:       ${stats.projectCount || '—'}
+
+${c.bold}Today${c.reset}
+  Cost:           ${stats.todayCost || '$0.00'}
+  Tokens:         ${formatNumber(stats.todayTokens || 0)}
+
+${c.bold}System${c.reset}
+  CPU:            ${stats.cpuUsage ? Math.round(stats.cpuUsage) + '%' : '—'}
+  Memory:         ${stats.memUsage ? Math.round(stats.memUsage) + '%' : '—'}
+  Uptime:         ${stats.uptime || '—'}
+`);
+  } catch (err) {
+    console.error(`${c.red}Error:${c.reset} ${err.message}`);
+    process.exit(1);
+  }
+}
+
+async function calculateStatsDirectly() {
+  const { readdir, stat } = await import('node:fs/promises');
+  
+  let sessionCount = 0;
+  let projectCount = 0;
+  
+  try {
+    const projects = await readdir(CLAUDE_PROJECTS_DIR);
+    projectCount = projects.length;
+    
+    for (const project of projects) {
+      const projectPath = join(CLAUDE_PROJECTS_DIR, project);
+      const files = await readdir(projectPath).catch(() => []);
+      sessionCount += files.filter(f => f.endsWith('.jsonl')).length;
+    }
+  } catch {}
+
+  return { sessionCount, projectCount, activeCount: 0 };
+}
+
+async function cmdSessions(flags) {
+  const useJson = flags.json;
+  const since = parseSince(flags.since || '24h');
+  const projectFilter = flags.project;
+  const branchFilter = flags.branch;
+  const activeOnly = flags.active;
+
+  try {
+    const sessions = await getSessionsDirectly({ since, projectFilter, branchFilter, activeOnly });
+
+    if (useJson) {
+      console.log(JSON.stringify(sessions, null, 2));
+      return;
+    }
+
+    if (sessions.length === 0) {
+      console.log(`${c.dim}No sessions found${c.reset}`);
+      return;
+    }
+
+    console.log(`${c.green}▪${c.reset} ${sessions.length} sessions\n`);
+
+    for (const s of sessions.slice(0, 20)) {
+      const status = s.isActive ? `${c.green}●${c.reset}` : `${c.dim}○${c.reset}`;
+      const time = formatRelativeTime(s.lastActivityAt);
+      const prompt = (s.originalPrompt || '').slice(0, 50) + ((s.originalPrompt?.length > 50) ? '...' : '');
+      
+      console.log(`${status} ${c.cyan}${s.sessionId.slice(0, 8)}${c.reset} ${c.dim}${time}${c.reset}`);
+      console.log(`  ${s.projectName}${s.gitBranch ? ` · ${s.gitBranch}` : ''}`);
+      console.log(`  ${c.dim}${prompt}${c.reset}`);
+      console.log();
+    }
+
+    if (sessions.length > 20) {
+      console.log(`${c.dim}... and ${sessions.length - 20} more${c.reset}`);
+    }
+  } catch (err) {
+    console.error(`${c.red}Error:${c.reset} ${err.message}`);
+    process.exit(1);
+  }
+}
+
+async function getSessionsDirectly({ since, projectFilter, branchFilter, activeOnly }) {
+  const { readdir, readFile, stat } = await import('node:fs/promises');
+  const sessions = [];
+
+  try {
+    const projects = await readdir(CLAUDE_PROJECTS_DIR);
+
+    for (const projectDir of projects) {
+      const projectPath = join(CLAUDE_PROJECTS_DIR, projectDir);
+      const files = await readdir(projectPath).catch(() => []);
+      
+      for (const file of files.filter(f => f.endsWith('.jsonl'))) {
+        const filePath = join(projectPath, file);
+        const fileStat = await stat(filePath).catch(() => null);
+        if (!fileStat) continue;
+
+        // Check time filter
+        if (since && fileStat.mtime.getTime() < since) continue;
+
+        // Parse first and last lines for metadata
+        try {
+          const content = await readFile(filePath, 'utf-8');
+          const lines = content.trim().split('\n').filter(Boolean);
+          if (lines.length === 0) continue;
+
+          const firstLine = JSON.parse(lines[0]);
+          const lastLine = JSON.parse(lines[lines.length - 1]);
+
+          const session = {
+            sessionId: file.replace('.jsonl', ''),
+            projectName: decodeProjectDir(projectDir),
+            originalPrompt: firstLine.message?.content?.[0]?.text || '',
+            gitBranch: null,
+            lastActivityAt: lastLine.timestamp || fileStat.mtime.toISOString(),
+            isActive: Date.now() - fileStat.mtime.getTime() < 5 * 60 * 1000,
+            messageCount: lines.length,
+          };
+
+          // Extract branch if available
+          for (const line of lines.slice(0, 10)) {
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.cwd) {
+                session.cwd = parsed.cwd;
+              }
+            } catch {}
+          }
+
+          // Apply filters
+          if (projectFilter && !session.projectName.toLowerCase().includes(projectFilter.toLowerCase())) continue;
+          if (branchFilter && session.gitBranch !== branchFilter) continue;
+          if (activeOnly && !session.isActive) continue;
+
+          sessions.push(session);
+        } catch {}
+      }
+    }
+  } catch {}
+
+  // Sort by last activity
+  sessions.sort((a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime());
+
+  return sessions;
+}
+
+function decodeProjectDir(encoded) {
+  const decoded = encoded.replace(/^-/, '/').replace(/-/g, '/');
+  return decoded.split('/').pop() || decoded;
+}
+
+async function cmdSearch(query, flags) {
+  if (!query) {
+    console.error(`${c.red}Error:${c.reset} Search query required`);
+    console.log(`Usage: harness search <query>`);
+    process.exit(1);
+  }
+
+  const useJson = flags.json;
+
+  try {
+    // Try daemon first
+    const response = await fetch(`http://127.0.0.1:4451/search?q=${encodeURIComponent(query)}`).catch(() => null);
+    
+    let results = [];
+    if (response?.ok) {
+      results = await response.json();
+    } else {
+      // Fall back to grep
+      results = await searchDirectly(query);
+    }
+
+    if (useJson) {
+      console.log(JSON.stringify(results, null, 2));
+      return;
+    }
+
+    if (results.length === 0) {
+      console.log(`${c.dim}No results for "${query}"${c.reset}`);
+      return;
+    }
+
+    console.log(`${c.green}▪${c.reset} ${results.length} results for "${query}"\n`);
+
+    for (const r of results.slice(0, 10)) {
+      console.log(`${c.cyan}${r.sessionId?.slice(0, 8) || '—'}${c.reset} ${r.projectName || '—'}`);
+      if (r.snippet) {
+        console.log(`  ${c.dim}${r.snippet.slice(0, 80)}${c.reset}`);
+      }
+      console.log();
+    }
+  } catch (err) {
+    console.error(`${c.red}Error:${c.reset} ${err.message}`);
+    process.exit(1);
+  }
+}
+
+async function searchDirectly(query) {
+  // Use ripgrep if available
+  try {
+    const output = execSync(
+      `rg -l -i "${query.replace(/"/g, '\\"')}" "${CLAUDE_PROJECTS_DIR}" -g "*.jsonl" 2>/dev/null | head -20`,
+      { encoding: 'utf-8', timeout: 10000 }
+    );
+    
+    return output.trim().split('\n').filter(Boolean).map(filepath => {
+      const parts = filepath.split('/');
+      const sessionId = parts.pop()?.replace('.jsonl', '') || '';
+      const projectDir = parts.pop() || '';
+      return {
+        sessionId,
+        projectName: decodeProjectDir(projectDir),
+        filepath,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function cmdExport(sessionId, flags) {
+  if (!sessionId) {
+    console.error(`${c.red}Error:${c.reset} Session ID required`);
+    console.log(`Usage: harness export <session-id>`);
+    process.exit(1);
+  }
+
+  const useJson = flags.json;
+
+  try {
+    // Try daemon first
+    const response = await fetch(`http://127.0.0.1:4451/session/${sessionId}`).catch(() => null);
+    
+    let session;
+    if (response?.ok) {
+      session = await response.json();
+    } else {
+      session = await loadSessionDirectly(sessionId);
+    }
+
+    if (!session) {
+      console.error(`${c.red}Error:${c.reset} Session not found: ${sessionId}`);
+      process.exit(1);
+    }
+
+    if (useJson) {
+      console.log(JSON.stringify(session, null, 2));
+      return;
+    }
+
+    // Output as markdown
+    console.log(`# Session ${sessionId.slice(0, 8)}`);
+    console.log();
+    if (session.goal) console.log(`**Goal:** ${session.goal}`);
+    if (session.originalPrompt) console.log(`**Prompt:** ${session.originalPrompt}`);
+    console.log();
+    console.log(`## Transcript`);
+    console.log();
+
+    for (const event of session.events || []) {
+      const time = event.timestamp ? new Date(event.timestamp).toLocaleTimeString() : '';
+      if (event.type === 'user') {
+        console.log(`### 👤 User ${time}`);
+        console.log(event.content);
+        console.log();
+      } else if (event.type === 'assistant') {
+        console.log(`### 🤖 Assistant ${time}`);
+        console.log(event.content);
+        console.log();
+      } else if (event.type === 'tool') {
+        console.log(`### 🔧 ${event.toolName} ${time}`);
+        console.log(`\`\`\`\n${event.content?.slice(0, 500) || ''}\n\`\`\``);
+        console.log();
+      }
+    }
+  } catch (err) {
+    console.error(`${c.red}Error:${c.reset} ${err.message}`);
+    process.exit(1);
+  }
+}
+
+async function loadSessionDirectly(sessionId) {
+  const { readdir, readFile } = await import('node:fs/promises');
+  
+  try {
+    const projects = await readdir(CLAUDE_PROJECTS_DIR);
+    
+    for (const projectDir of projects) {
+      const projectPath = join(CLAUDE_PROJECTS_DIR, projectDir);
+      const files = await readdir(projectPath).catch(() => []);
+      
+      // Support partial session ID matching
+      const matchingFile = files.find(f => f.startsWith(sessionId) && f.endsWith('.jsonl'));
+      if (!matchingFile) continue;
+      
+      const filePath = join(projectPath, matchingFile);
+      try {
+        const content = await readFile(filePath, 'utf-8');
+        const lines = content.trim().split('\n').filter(Boolean);
+        
+        const events = [];
+        let originalPrompt = '';
+        
+        for (const line of lines) {
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.type === 'human' || parsed.type === 'user') {
+              const text = parsed.message?.content?.[0]?.text || '';
+              if (!originalPrompt) originalPrompt = text;
+              events.push({ type: 'user', content: text, timestamp: parsed.timestamp });
+            } else if (parsed.type === 'assistant') {
+              const text = parsed.message?.content?.map(c => c.text || '').join('\n') || '';
+              events.push({ type: 'assistant', content: text, timestamp: parsed.timestamp });
+            }
+          } catch {}
+        }
+        
+        return { sessionId, originalPrompt, events };
+      } catch {}
+    }
+  } catch {}
+  
+  return null;
+}
+
+async function cmdDoctor() {
+  console.log(`${c.green}▪ harness${c.reset} doctor\n`);
+
+  const checks = [
+    { name: 'Node.js', check: () => process.version },
+    { name: 'Data directory', check: () => existsSync(DATA_DIR) ? DATA_DIR : null },
+    { name: 'Claude projects', check: () => existsSync(CLAUDE_PROJECTS_DIR) ? CLAUDE_PROJECTS_DIR : null },
+    { name: 'ripgrep', check: () => { try { return execSync('rg --version', { encoding: 'utf-8' }).split('\n')[0]; } catch { return null; } } },
+    { name: 'git', check: () => { try { return execSync('git --version', { encoding: 'utf-8' }).trim(); } catch { return null; } } },
+    { name: 'Daemon running', check: async () => { try { const r = await fetch('http://127.0.0.1:4451/status'); return r.ok ? 'yes' : null; } catch { return null; } } },
+  ];
+
+  for (const { name, check } of checks) {
+    try {
+      const result = await check();
+      if (result) {
+        console.log(`  ${c.green}✓${c.reset} ${name}: ${c.dim}${result}${c.reset}`);
+      } else {
+        console.log(`  ${c.red}✗${c.reset} ${name}: ${c.dim}not found${c.reset}`);
+      }
+    } catch (err) {
+      console.log(`  ${c.red}✗${c.reset} ${name}: ${c.dim}${err.message}${c.reset}`);
+    }
+  }
+
+  // Check session count
+  const stats = await calculateStatsDirectly();
+  console.log(`\n  ${c.cyan}ℹ${c.reset} ${stats.sessionCount} sessions across ${stats.projectCount} projects`);
+
+  // Suggestions
+  console.log(`\n${c.bold}Suggestions:${c.reset}`);
+  
+  if (!existsSync(DATA_DIR)) {
+    console.log(`  • Run ${c.cyan}harness${c.reset} to create data directory`);
+  }
+  
+  try {
+    execSync('rg --version', { stdio: 'ignore' });
+  } catch {
+    console.log(`  • Install ripgrep for faster search: ${c.cyan}brew install ripgrep${c.reset}`);
+  }
+}
+
+async function cmdConfig(flags) {
+  const config = loadConfig();
+
+  if (flags.json) {
+    console.log(JSON.stringify(config, null, 2));
+    return;
+  }
+
+  console.log(`${c.green}▪ harness${c.reset} config\n`);
+  console.log(`Config file: ${c.dim}${CONFIG_PATH}${c.reset}\n`);
+
+  if (Object.keys(config).length === 0) {
+    console.log(`${c.dim}No configuration set${c.reset}`);
+    console.log(`\nAvailable options:`);
+    console.log(`  port          Daemon port (default: 4450)`);
+    console.log(`  resumeFlags   Custom flags for resume command`);
+    console.log(`  watchDir      Custom projects directory`);
+    return;
+  }
+
+  for (const [key, value] of Object.entries(config)) {
+    console.log(`  ${key}: ${c.cyan}${JSON.stringify(value)}${c.reset}`);
+  }
+}
+
+async function cmdIndex(flags) {
+  const rebuild = flags.rebuild;
+
+  if (rebuild) {
+    console.log(`${c.cyan}⣾${c.reset} Rebuilding search index...`);
+    
+    // Try to trigger daemon reindex
+    try {
+      const response = await fetch('http://127.0.0.1:4451/index/rebuild', { method: 'POST' });
+      if (response.ok) {
+        console.log(`${c.green}✓${c.reset} Index rebuild triggered`);
+        return;
+      }
+    } catch {}
+
+    console.log(`${c.yellow}⚠${c.reset} Daemon not running. Start with ${c.cyan}harness${c.reset} to rebuild index.`);
+    return;
+  }
+
+  // Show index stats
+  try {
+    const response = await fetch('http://127.0.0.1:4451/search/stats');
+    if (response.ok) {
+      const stats = await response.json();
+      console.log(`${c.green}▪${c.reset} Search index`);
+      console.log(`  Indexed: ${stats.indexed} sessions`);
+      console.log(`  Last indexed: ${stats.lastIndexed || 'never'}`);
+      return;
+    }
+  } catch {}
+
+  const stats = await calculateStatsDirectly();
+  console.log(`${c.green}▪${c.reset} Search index`);
+  console.log(`  Sessions available: ${stats.sessionCount}`);
+  console.log(`  ${c.dim}Start daemon to build index${c.reset}`);
+}
+
+async function cmdStart(flags) {
+  const port = parseInt(flags.port) || 4450;
+  const noOpen = flags['no-open'];
+  const headless = flags.headless;
+  const watchDir = flags.watch;
+
+  ensureDataDir();
+
+  console.log(`${c.green}▪ harness${c.reset} session tracker\n`);
+
+  startSpinner('Starting daemon...');
+
+  // Build environment
+  const env = { ...process.env };
+  if (port !== 4450) env.PORT = String(port);
+  if (watchDir) env.CLAUDE_PROJECTS_DIR = watchDir;
+
+  // Start daemon
+  const daemonPath = join(__dirname, '../dist/daemon/serve.js');
+  const daemon = spawn('node', [daemonPath], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: false,
+    env,
+  });
+
+  let daemonReady = false;
+
+  daemon.stdout.on('data', (data) => {
+    const output = data.toString();
+    if ((output.includes('Ready') || output.includes('Stats URL')) && !daemonReady) {
+      daemonReady = true;
+      stopSpinner(true);
+      
+      const uiPort = port + 1;
+      console.log(`${c.green}✓${c.reset} Dashboard: ${c.cyan}http://localhost:${uiPort}${c.reset}`);
+      
+      if (!noOpen && !headless) {
+        // Open browser
+        const openCmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+        try {
+          execSync(`${openCmd} http://localhost:${uiPort}`, { stdio: 'ignore' });
+        } catch {}
+      }
+      
+      console.log(`${c.dim}Press Ctrl+C to stop${c.reset}\n`);
+    }
+    
+    if (!headless) {
+      process.stdout.write(output);
+    }
+  });
+
+  daemon.stderr.on('data', (data) => {
+    const output = data.toString();
+    if (!output.includes('ExperimentalWarning') && !output.includes('Anthropic')) {
+      process.stderr.write(output);
+    }
+  });
+
+  daemon.on('error', (err) => {
+    stopSpinner(false);
+    console.error(`${c.red}Failed to start:${c.reset} ${err.message}`);
+    process.exit(1);
+  });
+
+  daemon.on('close', (code) => {
+    if (code !== 0 && code !== null) {
+      process.exit(code);
+    }
+  });
+
+  process.on('SIGINT', () => {
+    console.log(`\n${c.dim}Shutting down...${c.reset}`);
+    daemon.kill();
+    process.exit(0);
+  });
+
+  process.on('SIGTERM', () => {
+    daemon.kill();
+    process.exit(0);
+  });
+}
+
+// ============= HELPERS =============
+
+function parseSince(value) {
+  if (!value) return null;
+  
+  const match = value.match(/^(\d+)(h|d|w|m)$/);
+  if (!match) return null;
+  
+  const num = parseInt(match[1]);
+  const unit = match[2];
+  
+  const ms = {
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+    w: 7 * 24 * 60 * 60 * 1000,
+    m: 30 * 24 * 60 * 60 * 1000,
+  }[unit];
+  
+  return Date.now() - (num * ms);
+}
+
+function formatRelativeTime(isoString) {
+  const date = new Date(isoString);
+  const now = Date.now();
+  const diff = now - date.getTime();
+  
+  const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes}m ago`;
+  
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  
+  return date.toLocaleDateString();
+}
+
+function formatNumber(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return String(n);
+}
+
+// ============= MAIN =============
+
+async function main() {
+  const args = process.argv.slice(2);
+  const { command, flags, positional } = parseArgs(args);
+
+  // Handle help flags anywhere
+  if (flags.help || flags.h) {
+    await cmdHelp();
+    return;
+  }
+
+  // Handle version flags anywhere
+  if (flags.version || flags.v) {
+    await cmdVersion();
+    return;
+  }
+
+  // Route to commands
+  switch (command) {
+    case null:
+    case 'start':
+      await cmdStart(flags);
+      break;
+    case 'help':
+      await cmdHelp();
+      break;
+    case 'version':
+      await cmdVersion();
+      break;
+    case 'stats':
+      await cmdStats(flags);
+      break;
+    case 'sessions':
+      await cmdSessions(flags);
+      break;
+    case 'search':
+      await cmdSearch(positional[0], flags);
+      break;
+    case 'export':
+      await cmdExport(positional[0], flags);
+      break;
+    case 'doctor':
+      await cmdDoctor();
+      break;
+    case 'config':
+      await cmdConfig(flags);
+      break;
+    case 'index':
+      await cmdIndex(flags);
+      break;
+    default:
+      console.error(`${c.red}Unknown command:${c.reset} ${command}`);
+      console.log(`Run ${c.cyan}harness help${c.reset} for usage`);
+      process.exit(1);
+  }
+}
+
+main().catch(err => {
+  console.error(`${c.red}Error:${c.reset} ${err.message}`);
+  process.exit(1);
+});

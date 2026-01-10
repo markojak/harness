@@ -1,0 +1,36 @@
+{
+  "name": "@claude-code-ui/daemon",
+  "version": "1.0.0",
+  "type": "module",
+  "exports": {
+    "./schema": "./src/schema.ts"
+  },
+  "scripts": {
+    "serve": "tsx src/serve.ts",
+    "watch": "tsx src/cli.ts",
+    "watch:recent": "tsx src/cli.ts --recent",
+    "watch:active": "tsx src/cli.ts --active",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "setup": "./scripts/setup-hooks.sh"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "@durable-streams/client": "^0.1.5",
+    "@durable-streams/server": "^0.1.6",
+    "@durable-streams/state": "^0.1.5",
+    "better-sqlite3": "^12.6.0",
+    "chokidar": "^4.0.3",
+    "dotenv": "^17.2.3",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.0.16",
+    "xstate": "^5.25.0"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "name": "@claude-code-ui/ui",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@durable-streams/client": "^0.1.5",
+    "@durable-streams/state": "^0.1.5",
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource-variable/space-grotesk": "^5.2.10",
+    "@radix-ui/themes": "^3.2.1",
+    "@tanstack/db": "^0.5.18",
+    "@tanstack/react-db": "^0.1.62",
+    "@tanstack/react-router": "^1.146.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
+    "react-syntax-highlighter": "^16.1.0",
+    "remark-gfm": "^4.0.1",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@capsizecss/metrics": "^3.4.0",
+    "@eslint/js": "^9.39.1",
+    "@tanstack/router-devtools": "^1.146.2",
+    "@tanstack/router-plugin": "^1.146.2",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@types/react-syntax-highlighter": "^15.5.13",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "^7.2.4",
+    "vite-plugin-capsize-radix": "^0.1.3"
+  }
+}

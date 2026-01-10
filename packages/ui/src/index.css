@@ -1,0 +1,337 @@
+/* ===========================================
+   HARNESS - Terminal-inspired theme
+   Inspired by omarchy / Factory.ai
+   =========================================== */
+
+/* Berkeley Mono Font */
+@font-face {
+  font-family: 'Berkeley Mono';
+  src: url('/fonts/BerkeleyMono-Regular.otf') format('opentype');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'Berkeley Mono';
+  src: url('/fonts/BerkeleyMono-Medium.otf') format('opentype');
+  font-weight: 500;
+}
+@font-face {
+  font-family: 'Berkeley Mono';
+  src: url('/fonts/BerkeleyMono-SemiBold.otf') format('opentype');
+  font-weight: 600;
+}
+@font-face {
+  font-family: 'Berkeley Mono';
+  src: url('/fonts/BerkeleyMono-Bold.otf') format('opentype');
+  font-weight: 700;
+}
+
+/* CSS Variables - Harness Theme */
+:root {
+  /* Backgrounds - deep blue-black like omarchy */
+  --bg-base: #0d1117;
+  --bg-surface: #161b22;
+  --bg-elevated: #1c2128;
+  --bg-hover: #252c35;
+  
+  /* Borders */
+  --border-subtle: #21262d;
+  --border-default: #30363d;
+  --border-strong: #484f58;
+  
+  /* Text */
+  --text-primary: #e6edf3;
+  --text-secondary: #7d8590;
+  --text-tertiary: #484f58;
+  
+  /* Accent colors - terminal style */
+  --accent-green: #3fb950;
+  --accent-cyan: #58a6ff;
+  --accent-orange: #d29922;
+  --accent-red: #f85149;
+  --accent-purple: #a371f7;
+  --accent-pink: #db61a2;
+  
+  /* Status colors */
+  --status-working: #3fb950;
+  --status-approval: #d29922;
+  --status-waiting: #58a6ff;
+  --status-idle: #484f58;
+  
+  /* Font rendering */
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Override Radix theme tokens */
+.radix-themes {
+  /* All fonts → Berkeley Mono */
+  --default-font-family: 'Berkeley Mono', ui-monospace, monospace;
+  --heading-font-family: 'Berkeley Mono', ui-monospace, monospace;
+  --code-font-family: 'Berkeley Mono', ui-monospace, monospace;
+  
+  /* Tighter base size */
+  --font-size-1: 11px;
+  --font-size-2: 12px;
+  --font-size-3: 13px;
+  --font-size-4: 14px;
+  --font-size-5: 16px;
+  --font-size-6: 18px;
+  
+  /* Override Radix colors with our theme */
+  --color-background: var(--bg-base);
+  --color-panel-solid: var(--bg-surface);
+  --gray-1: var(--bg-base);
+  --gray-2: var(--bg-surface);
+  --gray-3: var(--bg-elevated);
+  --gray-4: var(--bg-hover);
+  --gray-5: var(--border-subtle);
+  --gray-6: var(--border-default);
+  --gray-7: var(--border-strong);
+  --gray-8: var(--text-tertiary);
+  --gray-9: var(--text-secondary);
+  --gray-10: var(--text-secondary);
+  --gray-11: var(--text-secondary);
+  --gray-12: var(--text-primary);
+  
+  /* Minimal radius */
+  --radius-1: 2px;
+  --radius-2: 3px;
+  --radius-3: 4px;
+  --radius-4: 6px;
+  --radius-5: 8px;
+  --radius-6: 12px;
+  
+  /* Tighter spacing */
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 10px;
+  --space-4: 14px;
+  --space-5: 18px;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* =====================
+   Session Cards
+   ===================== */
+.session-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  padding: 10px 12px;
+  transition: all 0.15s ease;
+  animation: slide-up 0.2s ease-out backwards;
+  overflow: hidden;
+  min-width: 0; /* Enable flex truncation */
+}
+
+.session-card:hover {
+  border-color: var(--border-default);
+  background: var(--bg-elevated);
+}
+
+/* Ensure text truncation works in flex containers */
+.session-card * {
+  min-width: 0;
+}
+
+.session-card:nth-child(1) { animation-delay: 0ms; }
+.session-card:nth-child(2) { animation-delay: 30ms; }
+.session-card:nth-child(3) { animation-delay: 60ms; }
+.session-card:nth-child(4) { animation-delay: 90ms; }
+.session-card:nth-child(5) { animation-delay: 120ms; }
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =====================
+   Status Indicators
+   ===================== */
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  display: inline-block;
+}
+
+.status-dot-working {
+  background: var(--status-working);
+  box-shadow: 0 0 6px var(--status-working);
+}
+
+.status-dot-approval {
+  background: var(--status-approval);
+  box-shadow: 0 0 6px var(--status-approval);
+}
+
+.status-dot-waiting {
+  background: var(--status-waiting);
+}
+
+.status-dot-idle {
+  background: var(--status-idle);
+}
+
+/* Pulse animation for working */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.status-working {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Subtle attention for needs approval */
+.status-needs-approval {
+  border-left: 2px solid var(--status-approval);
+}
+
+/* =====================
+   Column Headers
+   ===================== */
+.column-header {
+  border-left: 3px solid;
+  padding-left: 8px;
+  margin-bottom: 8px;
+}
+
+.column-header-working {
+  border-color: var(--status-working);
+}
+
+.column-header-approval {
+  border-color: var(--status-approval);
+}
+
+.column-header-waiting {
+  border-color: var(--status-waiting);
+}
+
+.column-header-idle {
+  border-color: var(--status-idle);
+}
+
+/* =====================
+   Kanban Columns
+   ===================== */
+.kanban-column {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  padding: 10px;
+  min-height: 200px;
+}
+
+/* =====================
+   Repo Section
+   ===================== */
+.repo-section {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.repo-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.repo-link {
+  color: var(--accent-cyan);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.repo-link:hover {
+  text-decoration: underline;
+}
+
+/* =====================
+   Utility Classes
+   ===================== */
+.text-muted {
+  color: var(--text-secondary);
+}
+
+.text-dim {
+  color: var(--text-tertiary);
+}
+
+.mono {
+  font-family: 'Berkeley Mono', ui-monospace, monospace;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Code/branch badges */
+.badge {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 2px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.badge-branch {
+  color: var(--accent-purple);
+}
+
+/* =====================
+   Grid Background (optional)
+   ===================== */
+.grid-bg {
+  background-image: 
+    linear-gradient(var(--border-subtle) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: -1px -1px;
+}
+
+/* =====================
+   Scrollbar Styling
+   ===================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-base);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}

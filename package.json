@@ -1,0 +1,58 @@
+{
+  "name": "harness-ai",
+  "version": "0.1.0",
+  "description": "Terminal-style dashboard for Claude Code sessions",
+  "type": "module",
+  "bin": {
+    "harness": "./bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "fonts"
+  ],
+  "scripts": {
+    "start": "concurrently \"pnpm --filter @claude-code-ui/daemon start\" \"pnpm --filter @claude-code-ui/ui dev\"",
+    "build": "pnpm --filter @claude-code-ui/daemon build && pnpm --filter @claude-code-ui/ui build && pnpm run build:bundle",
+    "build:bundle": "node scripts/bundle.js",
+    "prepublishOnly": "pnpm run build"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "ai",
+    "dashboard",
+    "sessions",
+    "developer-tools",
+    "terminal"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/markojak/harness-ai"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "@durable-streams/client": "^0.1.5",
+    "@durable-streams/server": "^0.1.6",
+    "@durable-streams/state": "^0.1.5",
+    "better-sqlite3": "^12.6.0",
+    "chokidar": "^4.0.3",
+    "dotenv": "^17.2.3",
+    "fastq": "^1.20.1",
+    "xstate": "^5.25.0",
+    "zod": "^4.3.5"
+  },
+  "devDependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.13.1",
+    "concurrently": "^9.1.2",
+    "esbuild": "^0.24.2",
+    "typescript": "^5.7.3"
+  }
+}

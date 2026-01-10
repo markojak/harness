@@ -89,7 +89,13 @@ function getVersion() {
 // Config file path
 const CONFIG_PATH = join(process.env.HOME || '', '.harness', 'config.json');
 const DATA_DIR = join(process.env.HOME || '', '.harness');
-const CLAUDE_PROJECTS_DIR = join(process.env.HOME || '', '.claude', 'projects');
+
+// Default provider paths
+const DEFAULT_PATHS = {
+  claude: join(process.env.HOME || '', '.claude', 'projects'),
+  codex: join(process.env.HOME || '', '.codex', 'sessions'),
+  opencode: join(process.env.HOME || '', '.local', 'share', 'opencode', 'storage'),
+};
 
 function ensureDataDir() {
   if (!existsSync(DATA_DIR)) {
@@ -104,6 +110,22 @@ function loadConfig() {
     }
   } catch {}
   return {};
+}
+
+function getProviderPath(provider) {
+  const config = loadConfig();
+  return config.providers?.[provider]?.path || DEFAULT_PATHS[provider];
+}
+
+function isProviderEnabled(provider) {
+  const config = loadConfig();
+  // Default to enabled if not specified
+  return config.providers?.[provider]?.enabled !== false;
+}
+
+function isCustomPath(provider) {
+  const config = loadConfig();
+  return config.providers?.[provider]?.path && config.providers[provider].path !== DEFAULT_PATHS[provider];
 }
 
 function saveConfig(config) {
@@ -204,21 +226,21 @@ ${c.bold}System${c.reset}
 }
 
 async function calculateStatsDirectly() {
-  const { readdir, stat } = await import('node:fs/promises');
-  
   let sessionCount = 0;
   let projectCount = 0;
   
-  try {
-    const projects = await readdir(CLAUDE_PROJECTS_DIR);
-    projectCount = projects.length;
+  // Count across all enabled providers
+  const providers = ['claude', 'codex', 'opencode'];
+  
+  for (const provider of providers) {
+    if (!isProviderEnabled(provider)) continue;
+    const path = getProviderPath(provider);
+    if (!existsSync(path)) continue;
     
-    for (const project of projects) {
-      const projectPath = join(CLAUDE_PROJECTS_DIR, project);
-      const files = await readdir(projectPath).catch(() => []);
-      sessionCount += files.filter(f => f.endsWith('.jsonl')).length;
-    }
-  } catch {}
+    const count = await countProviderSessions(provider, path);
+    sessionCount += count;
+    projectCount++; // Count each provider as a "project" for simplicity
+  }
 
   return { sessionCount, projectCount, activeCount: 0 };
 }
@@ -512,44 +534,143 @@ async function loadSessionDirectly(sessionId) {
 async function cmdDoctor() {
   console.log(`${c.green}▪ harness${c.reset} doctor\n`);
 
-  const checks = [
-    { name: 'Node.js', check: () => process.version },
-    { name: 'Data directory', check: () => existsSync(DATA_DIR) ? DATA_DIR : null },
-    { name: 'Claude projects', check: () => existsSync(CLAUDE_PROJECTS_DIR) ? CLAUDE_PROJECTS_DIR : null },
-    { name: 'ripgrep', check: () => { try { return execSync('rg --version', { encoding: 'utf-8' }).split('\n')[0]; } catch { return null; } } },
-    { name: 'git', check: () => { try { return execSync('git --version', { encoding: 'utf-8' }).trim(); } catch { return null; } } },
-    { name: 'Daemon running', check: async () => { try { const r = await fetch('http://127.0.0.1:4451/status'); return r.ok ? 'yes' : null; } catch { return null; } } },
-  ];
+  // Basic checks
+  console.log(`  ${c.green}✓${c.reset} Node.js: ${c.dim}${process.version}${c.reset}`);
+  console.log(`  ${existsSync(DATA_DIR) ? c.green + '✓' : c.yellow + '○'}${c.reset} Data directory: ${c.dim}${DATA_DIR}${c.reset}`);
 
-  for (const { name, check } of checks) {
-    try {
-      const result = await check();
-      if (result) {
-        console.log(`  ${c.green}✓${c.reset} ${name}: ${c.dim}${result}${c.reset}`);
-      } else {
-        console.log(`  ${c.red}✗${c.reset} ${name}: ${c.dim}not found${c.reset}`);
-      }
-    } catch (err) {
-      console.log(`  ${c.red}✗${c.reset} ${name}: ${c.dim}${err.message}${c.reset}`);
+  // Provider checks
+  console.log(`\n${c.bold}Providers:${c.reset}`);
+  
+  const providerStats = { total: 0, providers: 0 };
+  const providers = ['claude', 'codex', 'opencode'];
+  
+  for (const provider of providers) {
+    const path = getProviderPath(provider);
+    const enabled = isProviderEnabled(provider);
+    const custom = isCustomPath(provider);
+    const exists = existsSync(path);
+    
+    if (!enabled) {
+      console.log(`  ${c.dim}○${c.reset} ${provider}: ${c.dim}disabled${c.reset}`);
+      continue;
+    }
+    
+    if (exists) {
+      // Count sessions
+      const count = await countProviderSessions(provider, path);
+      providerStats.total += count;
+      providerStats.providers++;
+      
+      const pathLabel = custom ? `${path} ${c.cyan}(custom)${c.reset}` : path;
+      console.log(`  ${c.green}✓${c.reset} ${provider}: ${c.dim}${pathLabel}${c.reset} ${c.gray}(${count} sessions)${c.reset}`);
+    } else {
+      const pathLabel = custom ? `${path} ${c.cyan}(custom)${c.reset}` : path;
+      console.log(`  ${c.yellow}○${c.reset} ${provider}: ${c.dim}${pathLabel}${c.reset} ${c.gray}(not found)${c.reset}`);
     }
   }
 
-  // Check session count
-  const stats = await calculateStatsDirectly();
-  console.log(`\n  ${c.cyan}ℹ${c.reset} ${stats.sessionCount} sessions across ${stats.projectCount} projects`);
+  // Dependencies
+  console.log(`\n${c.bold}Dependencies:${c.reset}`);
+  
+  try {
+    const rgVersion = execSync('rg --version', { encoding: 'utf-8' }).split('\n')[0];
+    console.log(`  ${c.green}✓${c.reset} ripgrep: ${c.dim}${rgVersion}${c.reset}`);
+  } catch {
+    console.log(`  ${c.yellow}○${c.reset} ripgrep: ${c.dim}not found (search will be slower)${c.reset}`);
+  }
+  
+  try {
+    const gitVersion = execSync('git --version', { encoding: 'utf-8' }).trim();
+    console.log(`  ${c.green}✓${c.reset} git: ${c.dim}${gitVersion}${c.reset}`);
+  } catch {
+    console.log(`  ${c.yellow}○${c.reset} git: ${c.dim}not found${c.reset}`);
+  }
+
+  // Daemon status
+  console.log(`\n${c.bold}Status:${c.reset}`);
+  
+  try {
+    const r = await fetch('http://127.0.0.1:4451/status');
+    if (r.ok) {
+      console.log(`  ${c.green}✓${c.reset} Daemon: ${c.dim}running${c.reset}`);
+    } else {
+      console.log(`  ${c.yellow}○${c.reset} Daemon: ${c.dim}not running${c.reset}`);
+    }
+  } catch {
+    console.log(`  ${c.yellow}○${c.reset} Daemon: ${c.dim}not running${c.reset}`);
+  }
+
+  // Summary
+  console.log(`\n  ${c.cyan}ℹ${c.reset} ${providerStats.total} sessions across ${providerStats.providers} provider${providerStats.providers !== 1 ? 's' : ''}`);
+
+  // Config info
+  const config = loadConfig();
+  if (Object.keys(config).length > 0) {
+    console.log(`  ${c.cyan}ℹ${c.reset} Config: ${c.dim}${CONFIG_PATH}${c.reset}`);
+  }
 
   // Suggestions
-  console.log(`\n${c.bold}Suggestions:${c.reset}`);
+  const suggestions = [];
   
   if (!existsSync(DATA_DIR)) {
-    console.log(`  • Run ${c.cyan}harness${c.reset} to create data directory`);
+    suggestions.push(`Run ${c.cyan}harness${c.reset} to create data directory`);
   }
   
   try {
     execSync('rg --version', { stdio: 'ignore' });
   } catch {
-    console.log(`  • Install ripgrep for faster search: ${c.cyan}brew install ripgrep${c.reset}`);
+    suggestions.push(`Install ripgrep for 10x faster search: ${c.cyan}brew install ripgrep${c.reset}`);
   }
+  
+  if (providerStats.providers === 0) {
+    suggestions.push(`No providers found. Install Claude Code, Codex CLI, or OpenCode to get started.`);
+  }
+
+  if (suggestions.length > 0) {
+    console.log(`\n${c.bold}Suggestions:${c.reset}`);
+    for (const s of suggestions) {
+      console.log(`  • ${s}`);
+    }
+  }
+}
+
+async function countProviderSessions(provider, basePath) {
+  const { readdir } = await import('node:fs/promises');
+  let count = 0;
+  
+  try {
+    if (provider === 'claude') {
+      const projects = await readdir(basePath);
+      for (const proj of projects) {
+        const files = await readdir(join(basePath, proj)).catch(() => []);
+        count += files.filter(f => f.endsWith('.jsonl')).length;
+      }
+    } else if (provider === 'codex') {
+      // Codex has nested date structure
+      const years = await readdir(basePath).catch(() => []);
+      for (const year of years) {
+        const months = await readdir(join(basePath, year)).catch(() => []);
+        for (const month of months) {
+          const days = await readdir(join(basePath, year, month)).catch(() => []);
+          for (const day of days) {
+            const files = await readdir(join(basePath, year, month, day)).catch(() => []);
+            count += files.filter(f => f.endsWith('.jsonl') || f.endsWith('.json')).length;
+          }
+        }
+      }
+    } else if (provider === 'opencode') {
+      const sessionDir = join(basePath, 'session');
+      if (existsSync(sessionDir)) {
+        const projects = await readdir(sessionDir).catch(() => []);
+        for (const proj of projects) {
+          const files = await readdir(join(sessionDir, proj)).catch(() => []);
+          count += files.filter(f => f.endsWith('.json')).length;
+        }
+      }
+    }
+  } catch {}
+  
+  return count;
 }
 
 async function cmdConfig(flags) {

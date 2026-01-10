@@ -13,7 +13,11 @@ import { getGitInfoCached, type GitInfo } from "./git.js";
 import type { LogEntry, SessionMetadata, StatusResult } from "./types.js";
 import { log } from "./log.js";
 
-const CLAUDE_PROJECTS_DIR = `${process.env.HOME}/.claude/projects`;
+import { getProviderPath } from "./system-stats.js";
+
+function getClaudeProjectsDir(): string {
+  return getProviderPath("claude");
+}
 const SIGNALS_DIR = `${process.env.HOME}/.claude/session-signals`;
 
 export interface PendingPermission {
@@ -125,7 +129,7 @@ export class SessionWatcher extends EventEmitter {
   async start(): Promise<void> {
     // Use directory watching instead of glob - chokidar has issues with
     // directories that start with dashes when using glob patterns
-    this.watcher = watch(CLAUDE_PROJECTS_DIR, {
+    this.watcher = watch(getClaudeProjectsDir(), {
       ignored: /agent-.*\.jsonl$/,  // Ignore agent sub-session files
       persistent: true,
       ignoreInitial: false,

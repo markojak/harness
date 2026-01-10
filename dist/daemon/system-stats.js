@@ -49,14 +49,40 @@ import { findCommit, findRepoForCommit } from "./commit-finder.js";
 // Config management
 const DATA_DIR = join(process.env.HOME || "", ".harness");
 const CONFIG_PATH = join(DATA_DIR, "config.json");
+const HOME = process.env.HOME || "";
 const DEFAULT_CONFIG = {
+    providers: {
+        claude: {
+            enabled: true,
+            path: join(HOME, ".claude/projects"),
+        },
+        codex: {
+            enabled: true,
+            path: join(HOME, ".codex/sessions"),
+        },
+        opencode: {
+            enabled: true,
+            path: join(HOME, ".local/share/opencode/storage"),
+        },
+    },
+    port: 4450,
     resumeFlags: "",
 };
-function getConfig() {
+export function getConfig() {
     try {
         if (existsSync(CONFIG_PATH)) {
             const content = readFileSync(CONFIG_PATH, "utf-8");
-            return { ...DEFAULT_CONFIG, ...JSON.parse(content) };
+            const parsed = JSON.parse(content);
+            // Deep merge with defaults
+            return {
+                ...DEFAULT_CONFIG,
+                ...parsed,
+                providers: {
+                    claude: { ...DEFAULT_CONFIG.providers.claude, ...parsed.providers?.claude },
+                    codex: { ...DEFAULT_CONFIG.providers.codex, ...parsed.providers?.codex },
+                    opencode: { ...DEFAULT_CONFIG.providers.opencode, ...parsed.providers?.opencode },
+                },
+            };
         }
     }
     catch {
@@ -64,11 +90,26 @@ function getConfig() {
     }
     return DEFAULT_CONFIG;
 }
-function saveConfig(config) {
+export function saveConfig(config) {
     mkdirSync(DATA_DIR, { recursive: true });
     const current = getConfig();
-    const merged = { ...current, ...config };
+    const merged = {
+        ...current,
+        ...config,
+        providers: config.providers ? {
+            ...current.providers,
+            ...config.providers,
+        } : current.providers,
+    };
     writeFileSync(CONFIG_PATH, JSON.stringify(merged, null, 2));
+}
+export function getProviderPath(provider) {
+    const config = getConfig();
+    return config.providers[provider].path;
+}
+export function isProviderEnabled(provider) {
+    const config = getConfig();
+    return config.providers[provider].enabled;
 }
 // Shared state for cost tracking (set by watcher)
 let todayCostSummary = {

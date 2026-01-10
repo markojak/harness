@@ -5,8 +5,16 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import { join, basename, dirname } from "node:path";
 import { existsSync } from "node:fs";
 import { getGitInfo } from "./git.js";
-const CLAUDE_PROJECTS_DIR = `${process.env.HOME}/.claude/projects`;
-const CODEX_SESSIONS_DIR = `${process.env.HOME}/.codex/sessions`;
+import { getProviderPath } from "./system-stats.js";
+function getClaudeProjectsDir() {
+    return getProviderPath("claude");
+}
+function getCodexSessionsDir() {
+    return getProviderPath("codex");
+}
+function getOpenCodeStorageDir() {
+    return getProviderPath("opencode");
+}
 /**
  * Decode the encoded directory name back to a path
  */
@@ -114,9 +122,9 @@ export async function indexAllSessions() {
     const sessions = [];
     const projectMap = new Map();
     try {
-        const encodedDirs = await readdir(CLAUDE_PROJECTS_DIR);
+        const encodedDirs = await readdir(getClaudeProjectsDir());
         for (const encodedDir of encodedDirs) {
-            const dirPath = join(CLAUDE_PROJECTS_DIR, encodedDir);
+            const dirPath = join(getClaudeProjectsDir(), encodedDir);
             const dirStat = await stat(dirPath).catch(() => null);
             if (!dirStat?.isDirectory())
                 continue;
@@ -250,7 +258,7 @@ async function indexCodexSessions(sessions, projectMap) {
         return files;
     }
     try {
-        const sessionFiles = await findCodexFiles(CODEX_SESSIONS_DIR);
+        const sessionFiles = await findCodexFiles(getCodexSessionsDir());
         for (const filepath of sessionFiles) {
             try {
                 const fileStat = await stat(filepath);
@@ -344,11 +352,11 @@ async function indexCodexSessions(sessions, projectMap) {
 /**
  * Index OpenCode sessions from ~/.local/share/opencode/storage/
  */
-const OPENCODE_STORAGE_DIR = `${process.env.HOME}/.local/share/opencode/storage`;
+// OpenCode storage dir is now provided by config via getOpenCodeStorageDir()
 async function indexOpenCodeSessions(sessions, projectMap) {
     // Load projects first
     const projects = new Map();
-    const projectDir = join(OPENCODE_STORAGE_DIR, "project");
+    const projectDir = join(getOpenCodeStorageDir(), "project");
     try {
         const projectFiles = await readdir(projectDir);
         for (const file of projectFiles.filter(f => f.endsWith(".json") && f !== "global.json")) {
@@ -364,7 +372,7 @@ async function indexOpenCodeSessions(sessions, projectMap) {
     }
     catch { }
     // Index sessions
-    const sessionDir = join(OPENCODE_STORAGE_DIR, "session");
+    const sessionDir = join(getOpenCodeStorageDir(), "session");
     try {
         const projectDirs = await readdir(sessionDir);
         for (const projectHash of projectDirs) {
@@ -384,7 +392,7 @@ async function indexOpenCodeSessions(sessions, projectMap) {
                     const content = await readFile(sessionPath, "utf-8");
                     const sessionData = JSON.parse(content);
                     // Get message count and model info
-                    const messageDir = join(OPENCODE_STORAGE_DIR, "message", sessionData.id);
+                    const messageDir = join(getOpenCodeStorageDir(), "message", sessionData.id);
                     let messageCount = 0;
                     let originalPrompt = sessionData.title || "";
                     let lastActivityAt = fileStat.mtime.toISOString();

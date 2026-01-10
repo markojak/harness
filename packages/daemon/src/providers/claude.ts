@@ -5,8 +5,11 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { ProviderSession, SessionEvent } from "./types.js";
+import { getProviderPath } from "../system-stats.js";
 
-const CLAUDE_PROJECTS_DIR = `${process.env.HOME}/.claude/projects`;
+function getClaudeProjectsDir(): string {
+  return getProviderPath("claude");
+}
 
 /**
  * Decode the encoded directory name back to a path
@@ -34,7 +37,7 @@ export async function listClaudeSessions(options?: {
   const { since, projectFilter } = options || {};
 
   try {
-    const projectDirs = await readdir(CLAUDE_PROJECTS_DIR);
+    const projectDirs = await readdir(getClaudeProjectsDir());
 
     for (const projectDir of projectDirs) {
       const projectName = getProjectName(projectDir);
@@ -44,7 +47,7 @@ export async function listClaudeSessions(options?: {
         continue;
       }
 
-      const projectPath = join(CLAUDE_PROJECTS_DIR, projectDir);
+      const projectPath = join(getClaudeProjectsDir(), projectDir);
       const files = await readdir(projectPath).catch(() => []);
 
       for (const file of files.filter(f => f.endsWith(".jsonl"))) {
@@ -206,5 +209,5 @@ export async function parseClaudeEvents(filepath: string): Promise<SessionEvent[
  * Watch for Claude session changes
  */
 export function getClaudeWatchPaths(): string[] {
-  return [CLAUDE_PROJECTS_DIR];
+  return [getClaudeProjectsDir()];
 }

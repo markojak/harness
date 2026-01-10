@@ -8,14 +8,16 @@
  */
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
-const OPENCODE_BASE_DIR = `${process.env.HOME}/.local/share/opencode`;
-const OPENCODE_STORAGE_DIR = `${OPENCODE_BASE_DIR}/storage`;
+import { getProviderPath } from "../system-stats.js";
+function getOpenCodeStorageDir() {
+    return getProviderPath("opencode");
+}
 /**
  * Load all projects from storage/project/
  */
 async function loadProjects() {
     const projects = new Map();
-    const projectDir = join(OPENCODE_STORAGE_DIR, "project");
+    const projectDir = join(getOpenCodeStorageDir(), "project");
     try {
         const files = await readdir(projectDir);
         for (const file of files.filter(f => f.endsWith(".json") && f !== "global.json")) {
@@ -41,7 +43,7 @@ export async function listOpenCodeSessions(options) {
     try {
         // Load projects first for worktree paths
         const projects = await loadProjects();
-        const sessionDir = join(OPENCODE_STORAGE_DIR, "session");
+        const sessionDir = join(getOpenCodeStorageDir(), "session");
         // Session dirs are organized by project hash
         const projectDirs = await readdir(sessionDir).catch(() => []);
         for (const projectHash of projectDirs) {
@@ -69,7 +71,7 @@ export async function listOpenCodeSessions(options) {
                     const content = await readFile(sessionPath, "utf-8");
                     const sessionData = JSON.parse(content);
                     // Get message count from message directory
-                    const messageDir = join(OPENCODE_STORAGE_DIR, "message", sessionData.id);
+                    const messageDir = join(getOpenCodeStorageDir(), "message", sessionData.id);
                     let messageCount = 0;
                     let originalPrompt = "";
                     let lastActivityAt = fileStat.mtime.toISOString();
@@ -160,7 +162,7 @@ export async function listOpenCodeSessions(options) {
  */
 export async function parseOpenCodeEvents(sessionId) {
     const events = [];
-    const messageDir = join(OPENCODE_STORAGE_DIR, "message", sessionId);
+    const messageDir = join(getOpenCodeStorageDir(), "message", sessionId);
     try {
         const files = await readdir(messageDir);
         const messageFiles = files.filter(f => f.endsWith(".json")).sort();
@@ -205,14 +207,14 @@ export async function parseOpenCodeEvents(sessionId) {
  * Get watch paths for OpenCode
  */
 export function getOpenCodeWatchPaths() {
-    return [OPENCODE_STORAGE_DIR];
+    return [getOpenCodeStorageDir()];
 }
 /**
  * Check if OpenCode is installed
  */
 export async function isOpenCodeInstalled() {
     try {
-        await stat(OPENCODE_STORAGE_DIR);
+        await stat(getOpenCodeStorageDir());
         return true;
     }
     catch {

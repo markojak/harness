@@ -1,27 +1,36 @@
-# ▪ Harness AI
+# ▪ Harness
 
-**A visual cockpit for all your coding agents.**
+**A unified cockpit for your AI coding agents.**
 
-Harness gives you real-time visibility into every Claude Code session running across your entire stack. Monitor multiple agents, track costs, search session history, and never lose context on what your AI is doing.
+Harness gives you real-time visibility into every AI coding session across Claude Code, OpenAI Codex CLI, and OpenCode. Monitor multiple agents, track which models you're using, search session history, and never lose context on what your AI assistants are doing.
 
-![Harness Dashboard](https://github.com/markojak/harness-ai/raw/main/docs/screenshot.png)
+## Supported Providers
+
+| Provider | Tool | Session Location |
+|----------|------|------------------|
+| **Claude** | [Claude Code](https://claude.ai/code) | `~/.claude/projects/` |
+| **Codex** | [Codex CLI](https://github.com/openai/codex) | `~/.codex/sessions/` |
+| **OpenCode** | [OpenCode](https://github.com/opencode-ai/opencode) | `~/.local/share/opencode/storage/` |
+
+OpenCode sessions display the actual model used (Claude, GPT-4, Gemini, etc.) since OpenCode supports multiple providers.
 
 ## Why Harness?
 
-When you're running multiple Claude Code sessions across different projects, terminals, and machines, it's easy to lose track:
+When you're running multiple AI coding sessions across different tools, projects, and terminals, it's easy to lose track:
 
 - Which agent is working on what?
-- How much have I spent today?
-- Where was that auth refactor I did last week?
+- What model did I use for that refactor?
+- Where was that auth fix I did last week?
 - Did that background task finish?
 
 Harness answers all of this with a terminal-native dashboard that feels like `htop` for your AI coding assistants.
 
 ## Features
 
+- **Multi-provider support** — Claude Code, Codex CLI, and OpenCode in one view
 - **Real-time monitoring** — See all active sessions across projects
+- **Model tracking** — See which AI model each session is using
 - **Kanban view** — Sessions organized by status (Working, Approval, Waiting, Idle)
-- **Cost tracking** — Daily spend and token usage at a glance
 - **Full-text search** — Find any session by content, powered by SQLite FTS5
 - **Commit finder** — Discover which session created a specific git commit
 - **Session transcripts** — Review full conversation history with syntax highlighting
@@ -49,18 +58,78 @@ harness
 ### From source
 
 ```bash
-git clone https://github.com/markojak/harness-ai.git
-cd harness-ai
+git clone https://github.com/markojak/harness.git
+cd harness
 pnpm install
 pnpm build
 node bin/cli.js
 ```
 
-### Homebrew (coming soon)
+---
 
-```bash
-brew install harness-ai
+## Configuration
+
+Harness stores configuration in `~/.harness/config.json`. Create this file to customize provider paths or other settings.
+
+### Default Paths
+
+Harness auto-detects sessions from these default locations:
+
+```json
+{
+  "providers": {
+    "claude": {
+      "enabled": true,
+      "path": "~/.claude/projects"
+    },
+    "codex": {
+      "enabled": true,
+      "path": "~/.codex/sessions"
+    },
+    "opencode": {
+      "enabled": true,
+      "path": "~/.local/share/opencode/storage"
+    }
+  }
+}
 ```
+
+### Custom Configuration
+
+Override paths if your tools store sessions elsewhere:
+
+```json
+{
+  "providers": {
+    "claude": {
+      "enabled": true,
+      "path": "/custom/path/to/claude/projects"
+    },
+    "codex": {
+      "enabled": false
+    },
+    "opencode": {
+      "enabled": true,
+      "path": "~/.local/share/opencode/storage"
+    }
+  },
+  "port": 4450,
+  "resumeFlags": "--continue"
+}
+```
+
+### Configuration Options
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `providers.claude.enabled` | boolean | true | Enable Claude Code sessions |
+| `providers.claude.path` | string | ~/.claude/projects | Claude session directory |
+| `providers.codex.enabled` | boolean | true | Enable Codex CLI sessions |
+| `providers.codex.path` | string | ~/.codex/sessions | Codex session directory |
+| `providers.opencode.enabled` | boolean | true | Enable OpenCode sessions |
+| `providers.opencode.path` | string | ~/.local/share/opencode/storage | OpenCode storage directory |
+| `port` | number | 4450 | Dashboard server port |
+| `resumeFlags` | string | "" | Custom flags for session resume |
 
 ---
 
@@ -71,7 +140,6 @@ brew install harness-ai
 | Dependency | Version | Purpose |
 |------------|---------|---------|
 | Node.js | ≥20.0.0 | Runtime |
-| Claude Code | Any | Session data source |
 
 ### Recommended
 
@@ -91,12 +159,18 @@ harness doctor
 
   ✓ Node.js: v22.0.0
   ✓ Data directory: ~/.harness
-  ✓ Claude projects: ~/.claude/projects
+  
+  Providers:
+  ✓ Claude: ~/.claude/projects (250 sessions)
+  ✓ Codex: ~/.codex/sessions (372 sessions)
+  ✓ OpenCode: ~/.local/share/opencode/storage (23 sessions)
+  
+  Dependencies:
   ✓ ripgrep: ripgrep 14.1.0
   ✓ git: git version 2.43.0
+  
   ✓ Daemon running: yes
-
-  ℹ 1800 sessions across 23 projects
+  ℹ 645 sessions across 3 providers
 ```
 
 ---
@@ -110,11 +184,16 @@ harness
 # Quick stats without UI
 harness stats
 
-# Search sessions
+# Search sessions across all providers
 harness search "authentication"
 
 # List recent sessions
 harness sessions --since 7d
+
+# Filter by provider
+harness sessions --provider claude
+harness sessions --provider codex
+harness sessions --provider opencode
 
 # Check system health
 harness doctor
@@ -145,17 +224,17 @@ harness doctor
 harness --port 5000      # Custom port (default: 4450)
 harness --no-open        # Don't open browser
 harness --headless       # API only, no UI serving
-harness --watch ~/other  # Watch custom projects directory
 ```
 
 ### Filter Options
 
 ```bash
-harness sessions --since 24h      # Last 24 hours
-harness sessions --since 7d       # Last 7 days
-harness sessions --project myapp  # Filter by project
-harness sessions --branch main    # Filter by git branch
-harness sessions --active         # Only active sessions
+harness sessions --since 24h          # Last 24 hours
+harness sessions --since 7d           # Last 7 days
+harness sessions --project myapp      # Filter by project
+harness sessions --branch main        # Filter by git branch
+harness sessions --provider claude    # Filter by provider
+harness sessions --active             # Only active sessions
 ```
 
 ### Output Options
@@ -165,28 +244,6 @@ harness stats --json           # JSON output for scripting
 harness sessions --json        # JSON session list
 harness export <id> --json     # JSON transcript
 ```
-
----
-
-## Configuration
-
-Configuration is stored in `~/.harness/config.json`.
-
-```json
-{
-  "port": 4450,
-  "resumeFlags": "--continue",
-  "watchDir": "~/.claude/projects"
-}
-```
-
-### Options
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `port` | number | 4450 | Daemon port |
-| `resumeFlags` | string | "" | Custom flags for session resume |
-| `watchDir` | string | ~/.claude/projects | Projects directory to watch |
 
 ---
 
@@ -202,68 +259,42 @@ Configuration is stored in `~/.harness/config.json`.
 │  │  (packages/daemon)  │    │    (packages/ui)        │    │
 │  │                     │    │                         │    │
 │  │  • Session watcher  │◄──►│  • React dashboard      │    │
-│  │  • SQLite FTS5      │    │  • Durable streams      │    │
-│  │  • Cost tracking    │    │  • Session panel        │    │
-│  │  • Commit finder    │    │  • Commit search        │    │
+│  │  • Multi-provider   │    │  • Durable streams      │    │
+│  │  • SQLite FTS5      │    │  • Session panel        │    │
+│  │  • Commit finder    │    │  • Provider icons       │    │
 │  │  • Status API       │    │                         │    │
 │  └─────────────────────┘    └─────────────────────────┘    │
 │            │                                                │
 │            ▼                                                │
-│  ┌─────────────────────┐                                   │
-│  │  ~/.claude/projects │  Claude Code session logs         │
-│  └─────────────────────┘                                   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │                   Session Sources                    │   │
+│  ├─────────────────┬─────────────────┬─────────────────┤   │
+│  │ ~/.claude/      │ ~/.codex/       │ ~/.local/share/ │   │
+│  │ projects/       │ sessions/       │ opencode/       │   │
+│  │                 │                 │ storage/        │   │
+│  │ Claude Code     │ Codex CLI       │ OpenCode        │   │
+│  └─────────────────┴─────────────────┴─────────────────┘   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Key Components
 
-- **Daemon** — Watches session files, maintains search index, serves API
+- **Daemon** — Watches session files from all providers, maintains search index, serves API
 - **UI** — React dashboard with real-time updates via Durable Streams
 - **CLI** — Thin wrapper that starts daemon and provides quick commands
+- **Providers** — Parsers for each AI tool's session format
 
 ### Data Storage
 
 | Location | Contents |
 |----------|----------|
-| `~/.claude/projects/` | Claude Code session JSONL files (read-only) |
+| `~/.claude/projects/` | Claude Code sessions (JSONL) |
+| `~/.codex/sessions/` | Codex CLI sessions (JSONL) |
+| `~/.local/share/opencode/storage/` | OpenCode sessions (JSON) |
 | `~/.harness/` | Harness data directory |
 | `~/.harness/harness.db` | SQLite database (FTS index, bookmarks) |
 | `~/.harness/config.json` | User configuration |
-
----
-
-## Dependencies
-
-### Runtime Dependencies
-
-| Package | Version | License | Purpose |
-|---------|---------|---------|---------|
-| better-sqlite3 | ^12.6.0 | MIT | SQLite with FTS5 support |
-| chokidar | ^4.0.3 | MIT | File system watching |
-| @durable-streams/* | ^0.1.5 | MIT | Real-time streaming |
-| @anthropic-ai/sdk | ^0.71.2 | MIT | AI summaries (optional) |
-| dotenv | ^17.2.3 | BSD-2 | Environment config |
-| zod | ^4.3.5 | MIT | Schema validation |
-| xstate | ^5.25.0 | MIT | State machines |
-
-### UI Dependencies
-
-| Package | Version | License | Purpose |
-|---------|---------|---------|---------|
-| react | ^19.2.0 | MIT | UI framework |
-| @radix-ui/themes | ^3.2.1 | MIT | Component library |
-| @tanstack/react-router | ^1.146.2 | MIT | Routing |
-| @tanstack/db | ^0.5.18 | MIT | Client-side DB |
-
-### System Dependencies
-
-| Tool | Required | Install | Purpose |
-|------|----------|---------|---------|
-| Node.js ≥20 | ✅ Yes | nodejs.org | Runtime |
-| ripgrep | ⭐ Recommended | `brew install ripgrep` | Fast search |
-| git | ⭐ Recommended | `xcode-select --install` | Commit finder |
-| SQLite | Bundled | — | Included in better-sqlite3 |
 
 ---
 
@@ -272,8 +303,8 @@ Configuration is stored in `~/.harness/config.json`.
 ### Setup
 
 ```bash
-git clone https://github.com/markojak/harness-ai.git
-cd harness-ai
+git clone https://github.com/markojak/harness.git
+cd harness
 pnpm install
 ```
 
@@ -294,16 +325,18 @@ pnpm --filter @claude-code-ui/ui dev
 pnpm build
 ```
 
-### Test
+### Adding a New Provider
 
-```bash
-pnpm test
-```
+1. Create parser in `packages/daemon/src/providers/`
+2. Add to `Provider` type in `types.ts`
+3. Register in `providers/index.ts`
+4. Add icon in `packages/ui/src/components/ProviderIcon.tsx`
+5. Update config schema
 
 ### Project Structure
 
 ```
-harness-ai/
+harness/
 ├── bin/
 │   └── cli.js              # CLI entry point
 ├── packages/
@@ -311,72 +344,57 @@ harness-ai/
 │   │   └── src/
 │   │       ├── serve.ts    # Main entry
 │   │       ├── watcher.ts  # Session file watcher
+│   │       ├── providers/  # Provider parsers
+│   │       │   ├── claude.ts
+│   │       │   ├── codex.ts
+│   │       │   └── opencode.ts
 │   │       ├── search.ts   # FTS5 search
-│   │       ├── commit-finder.ts
-│   │       ├── ripgrep.ts
 │   │       └── ...
 │   └── ui/                 # React dashboard
 │       └── src/
 │           ├── routes/     # Pages
 │           ├── components/ # UI components
 │           └── hooks/      # React hooks
-├── DESIGN.md               # Visual design guide
-├── FEATURES-V2.md          # Feature spec
-└── README.md               # This file
+└── README.md
 ```
-
----
-
-## Contributing
-
-We welcome contributions! Here's how to get started:
-
-### Reporting Issues
-
-- Check existing issues first
-- Include `harness doctor` output
-- Describe steps to reproduce
-
-### Pull Requests
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feat/amazing-feature`)
-3. Follow the code style (run `pnpm lint`)
-4. Write tests for new features
-5. Update documentation
-6. Submit PR with clear description
-
-### Code Style
-
-- TypeScript strict mode
-- Functional React components
-- Terminal-native aesthetic (see `DESIGN.md`)
-- No unnecessary dependencies
-
-### Areas for Contribution
-
-- [ ] Multi-machine sync
-- [ ] Plugin system for other AI tools
-- [ ] Session replay timeline
-- [ ] VS Code extension
-- [ ] Windows support
-- [ ] More export formats
 
 ---
 
 ## Troubleshooting
 
-### "Daemon not running"
+### "No sessions found"
+
+Check that at least one provider has sessions:
 
 ```bash
-# Check if port is in use
-lsof -i :4450
+# Claude Code
+ls ~/.claude/projects/
 
-# Kill existing process
-pkill -f "harness"
+# Codex CLI
+ls ~/.codex/sessions/
 
-# Restart
-harness
+# OpenCode
+ls ~/.local/share/opencode/storage/session/
+```
+
+### "Provider not detected"
+
+Verify paths in your config:
+
+```bash
+cat ~/.harness/config.json
+```
+
+Or check with:
+
+```bash
+harness doctor
+```
+
+### Port conflict
+
+```bash
+harness --port 5000
 ```
 
 ### "ripgrep missing"
@@ -389,51 +407,28 @@ brew install ripgrep
 
 # Ubuntu/Debian
 apt install ripgrep
-
-# Windows
-choco install ripgrep
-```
-
-### "No sessions found"
-
-Harness reads from `~/.claude/projects/`. Ensure:
-1. Claude Code is installed
-2. You've run at least one session
-3. Check path: `ls ~/.claude/projects/`
-
-### Port conflict
-
-```bash
-harness --port 5000
 ```
 
 ---
 
 ## Roadmap
 
+- [x] Multi-provider support (Claude, Codex, OpenCode)
 - [x] Real-time session monitoring
 - [x] Full-text search
 - [x] Commit finder
 - [x] CLI tools
+- [x] Model tracking for OpenCode
+- [ ] Session detail view
 - [ ] Session replay
-- [ ] Multi-device sync
-- [ ] Cost budgets & alerts
-- [ ] Plugin API
-- [ ] VS Code integration
+- [ ] Cost tracking per provider
+- [ ] Plugin API for custom providers
 
 ---
 
 ## License
 
 MIT © 2025
-
----
-
-## Acknowledgments
-
-- [Claude Code](https://claude.ai) — The AI coding assistant
-- [omarchy](https://github.com/getomni/omarchy) — Terminal aesthetic inspiration
-- [Durable Streams](https://github.com/durable-streams) — Real-time data sync
 
 ---
 

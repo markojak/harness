@@ -6,7 +6,10 @@ import { tailJSONL, extractMetadata, extractSessionId, extractEncodedDir, } from
 import { deriveStatus, statusChanged } from "./status.js";
 import { getGitInfoCached } from "./git.js";
 import { log } from "./log.js";
-const CLAUDE_PROJECTS_DIR = `${process.env.HOME}/.claude/projects`;
+import { getProviderPath } from "./system-stats.js";
+function getClaudeProjectsDir() {
+    return getProviderPath("claude");
+}
 const SIGNALS_DIR = `${process.env.HOME}/.claude/session-signals`;
 export class SessionWatcher extends EventEmitter {
     watcher = null;
@@ -56,7 +59,7 @@ export class SessionWatcher extends EventEmitter {
     async start() {
         // Use directory watching instead of glob - chokidar has issues with
         // directories that start with dashes when using glob patterns
-        this.watcher = watch(CLAUDE_PROJECTS_DIR, {
+        this.watcher = watch(getClaudeProjectsDir(), {
             ignored: /agent-.*\.jsonl$/, // Ignore agent sub-session files
             persistent: true,
             ignoreInitial: false,

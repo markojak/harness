@@ -5,8 +5,11 @@
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { ProviderSession, SessionEvent } from "./types.js";
+import { getProviderPath } from "../system-stats.js";
 
-const CODEX_SESSIONS_DIR = `${process.env.HOME}/.codex/sessions`;
+function getCodexSessionsDir(): string {
+  return getProviderPath("codex");
+}
 
 /**
  * Recursively find all JSONL files in the sessions directory
@@ -64,7 +67,7 @@ export async function listCodexSessions(options?: {
   const { since, projectFilter } = options || {};
 
   try {
-    const sessionFiles = await findCodexSessionFiles(CODEX_SESSIONS_DIR);
+    const sessionFiles = await findCodexSessionFiles(getCodexSessionsDir());
 
     for (const filepath of sessionFiles) {
       const fileStat = await stat(filepath).catch(() => null);
@@ -280,7 +283,7 @@ export async function parseCodexEvents(filepath: string): Promise<SessionEvent[]
  * Watch paths for Codex sessions
  */
 export function getCodexWatchPaths(): string[] {
-  return [CODEX_SESSIONS_DIR];
+  return [getCodexSessionsDir()];
 }
 
 /**
@@ -288,7 +291,7 @@ export function getCodexWatchPaths(): string[] {
  */
 export async function isCodexInstalled(): Promise<boolean> {
   try {
-    await stat(CODEX_SESSIONS_DIR);
+    await stat(getCodexSessionsDir());
     return true;
   } catch {
     return false;

@@ -137,7 +137,7 @@ function saveConfig(config) {
 
 async function cmdHelp() {
   console.log(`
-${c.green}▪ harness${c.reset} - Claude Code Session Tracker
+${c.green}▪ harness${c.reset} - AI Coding Session Dashboard
 
 ${c.bold}Usage:${c.reset}
   harness [command] [options]
@@ -158,9 +158,9 @@ ${c.bold}Start Options:${c.reset}
   --port <n>          Port for daemon (default: 4450)
   --no-open           Don't open browser
   --headless          API only, no UI
-  --watch <dir>       Watch custom projects directory
 
 ${c.bold}Filter Options:${c.reset}
+  --provider <name>   Filter by provider (claude, codex, opencode)
   --project <name>    Filter by project name
   --since <time>      Filter by time (e.g., 24h, 7d, 1w)
   --active            Only show active sessions
@@ -169,12 +169,18 @@ ${c.bold}Filter Options:${c.reset}
 ${c.bold}Output Options:${c.reset}
   --json              Output as JSON
 
+${c.bold}Providers:${c.reset}
+  ${c.yellow}C${c.reset} Claude          Claude Code (~/.claude/projects)
+  ${c.green}X${c.reset} Codex           Codex CLI (~/.codex/sessions)
+  ${c.cyan}O${c.reset} OpenCode        OpenCode (~/.local/share/opencode)
+
 ${c.bold}Examples:${c.reset}
-  harness                     Start dashboard
-  harness stats               Quick stats overview
-  harness sessions --since 7d Sessions from last week
-  harness search "auth"       Search for auth-related sessions
-  harness doctor              Check if everything works
+  harness                           Start dashboard
+  harness stats                     Quick stats overview
+  harness sessions --since 7d       Sessions from last week
+  harness sessions --provider claude Only Claude sessions
+  harness search "auth"             Search for auth-related
+  harness doctor                    Check if everything works
 `);
 }
 
@@ -251,9 +257,10 @@ async function cmdSessions(flags) {
   const projectFilter = flags.project;
   const branchFilter = flags.branch;
   const activeOnly = flags.active;
+  const providerFilter = flags.provider;
 
   try {
-    const sessions = await getSessionsDirectly({ since, projectFilter, branchFilter, activeOnly });
+    const sessions = await getSessionsDirectly({ since, projectFilter, branchFilter, activeOnly, providerFilter });
 
     if (useJson) {
       console.log(JSON.stringify(sessions, null, 2));
@@ -265,14 +272,26 @@ async function cmdSessions(flags) {
       return;
     }
 
-    console.log(`${c.green}▪${c.reset} ${sessions.length} sessions\n`);
+    // Group by provider for display
+    const byProvider = { claude: 0, codex: 0, opencode: 0 };
+    for (const s of sessions) byProvider[s.provider] = (byProvider[s.provider] || 0) + 1;
+    const providerSummary = Object.entries(byProvider)
+      .filter(([, count]) => count > 0)
+      .map(([p, count]) => `${p}: ${count}`)
+      .join(', ');
+
+    console.log(`${c.green}▪${c.reset} ${sessions.length} sessions ${c.dim}(${providerSummary})${c.reset}\n`);
+
+    const providerIcons = { claude: 'C', codex: 'X', opencode: 'O' };
+    const providerColors = { claude: c.yellow, codex: c.green, opencode: c.cyan };
 
     for (const s of sessions.slice(0, 20)) {
       const status = s.isActive ? `${c.green}●${c.reset}` : `${c.dim}○${c.reset}`;
       const time = formatRelativeTime(s.lastActivityAt);
       const prompt = (s.originalPrompt || '').slice(0, 50) + ((s.originalPrompt?.length > 50) ? '...' : '');
+      const pIcon = `${providerColors[s.provider] || c.dim}${providerIcons[s.provider] || '?'}${c.reset}`;
       
-      console.log(`${status} ${c.cyan}${s.sessionId.slice(0, 8)}${c.reset} ${c.dim}${time}${c.reset}`);
+      console.log(`${status} ${pIcon} ${c.cyan}${s.sessionId.slice(0, 8)}${c.reset} ${c.dim}${time}${c.reset}`);
       console.log(`  ${s.projectName}${s.gitBranch ? ` · ${s.gitBranch}` : ''}`);
       console.log(`  ${c.dim}${prompt}${c.reset}`);
       console.log();
@@ -287,69 +306,164 @@ async function cmdSessions(flags) {
   }
 }
 
-async function getSessionsDirectly({ since, projectFilter, branchFilter, activeOnly }) {
+async function getSessionsDirectly({ since, projectFilter, branchFilter, activeOnly, providerFilter }) {
   const { readdir, readFile, stat } = await import('node:fs/promises');
   const sessions = [];
 
-  try {
-    const projects = await readdir(CLAUDE_PROJECTS_DIR);
+  const providers = ['claude', 'codex', 'opencode'];
+  
+  for (const provider of providers) {
+    if (!isProviderEnabled(provider)) continue;
+    if (providerFilter && provider !== providerFilter) continue;
+    
+    const basePath = getProviderPath(provider);
+    if (!existsSync(basePath)) continue;
 
-    for (const projectDir of projects) {
-      const projectPath = join(CLAUDE_PROJECTS_DIR, projectDir);
-      const files = await readdir(projectPath).catch(() => []);
-      
-      for (const file of files.filter(f => f.endsWith('.jsonl'))) {
-        const filePath = join(projectPath, file);
-        const fileStat = await stat(filePath).catch(() => null);
-        if (!fileStat) continue;
+    try {
+      if (provider === 'claude') {
+        const projects = await readdir(basePath);
+        for (const projectDir of projects) {
+          const projectPath = join(basePath, projectDir);
+          const files = await readdir(projectPath).catch(() => []);
+          
+          for (const file of files.filter(f => f.endsWith('.jsonl'))) {
+            const filePath = join(projectPath, file);
+            const fileStat = await stat(filePath).catch(() => null);
+            if (!fileStat) continue;
+            if (since && fileStat.mtime.getTime() < since) continue;
 
-        // Check time filter
-        if (since && fileStat.mtime.getTime() < since) continue;
-
-        // Parse first and last lines for metadata
-        try {
-          const content = await readFile(filePath, 'utf-8');
-          const lines = content.trim().split('\n').filter(Boolean);
-          if (lines.length === 0) continue;
-
-          const firstLine = JSON.parse(lines[0]);
-          const lastLine = JSON.parse(lines[lines.length - 1]);
-
-          const session = {
-            sessionId: file.replace('.jsonl', ''),
-            projectName: decodeProjectDir(projectDir),
-            originalPrompt: firstLine.message?.content?.[0]?.text || '',
-            gitBranch: null,
-            lastActivityAt: lastLine.timestamp || fileStat.mtime.toISOString(),
-            isActive: Date.now() - fileStat.mtime.getTime() < 5 * 60 * 1000,
-            messageCount: lines.length,
-          };
-
-          // Extract branch if available
-          for (const line of lines.slice(0, 10)) {
             try {
-              const parsed = JSON.parse(line);
-              if (parsed.cwd) {
-                session.cwd = parsed.cwd;
-              }
+              const content = await readFile(filePath, 'utf-8');
+              const lines = content.trim().split('\n').filter(Boolean);
+              if (lines.length === 0) continue;
+
+              const firstLine = JSON.parse(lines[0]);
+              const lastLine = JSON.parse(lines[lines.length - 1]);
+              const projectName = decodeProjectDir(projectDir);
+
+              if (projectFilter && !projectName.toLowerCase().includes(projectFilter.toLowerCase())) continue;
+              
+              const isActive = Date.now() - fileStat.mtime.getTime() < 5 * 60 * 1000;
+              if (activeOnly && !isActive) continue;
+
+              sessions.push({
+                sessionId: file.replace('.jsonl', ''),
+                provider: 'claude',
+                projectName,
+                originalPrompt: firstLine.message?.content?.[0]?.text || '',
+                lastActivityAt: lastLine.timestamp || fileStat.mtime.toISOString(),
+                isActive,
+                messageCount: lines.length,
+              });
             } catch {}
           }
+        }
+      } else if (provider === 'codex') {
+        const sessionFiles = await findCodexFilesForCli(basePath);
+        for (const filePath of sessionFiles) {
+          const fileStat = await stat(filePath).catch(() => null);
+          if (!fileStat) continue;
+          if (since && fileStat.mtime.getTime() < since) continue;
 
-          // Apply filters
-          if (projectFilter && !session.projectName.toLowerCase().includes(projectFilter.toLowerCase())) continue;
-          if (branchFilter && session.gitBranch !== branchFilter) continue;
-          if (activeOnly && !session.isActive) continue;
+          try {
+            const content = await readFile(filePath, 'utf-8');
+            const lines = content.trim().split('\n').filter(Boolean);
+            if (lines.length === 0) continue;
 
-          sessions.push(session);
-        } catch {}
+            const firstLine = JSON.parse(lines[0]);
+            const projectName = firstLine.cwd?.split('/').pop() || 'unknown';
+
+            if (projectFilter && !projectName.toLowerCase().includes(projectFilter.toLowerCase())) continue;
+            
+            const isActive = Date.now() - fileStat.mtime.getTime() < 5 * 60 * 1000;
+            if (activeOnly && !isActive) continue;
+
+            sessions.push({
+              sessionId: filePath.split('/').pop()?.replace(/\.(jsonl|json)$/, '') || '',
+              provider: 'codex',
+              projectName,
+              originalPrompt: firstLine.content || '',
+              lastActivityAt: fileStat.mtime.toISOString(),
+              isActive,
+              messageCount: lines.length,
+            });
+          } catch {}
+        }
+      } else if (provider === 'opencode') {
+        const sessionDir = join(basePath, 'session');
+        if (existsSync(sessionDir)) {
+          const projects = await readdir(sessionDir).catch(() => []);
+          for (const proj of projects) {
+            const files = await readdir(join(sessionDir, proj)).catch(() => []);
+            for (const file of files.filter(f => f.endsWith('.json'))) {
+              const filePath = join(sessionDir, proj, file);
+              const fileStat = await stat(filePath).catch(() => null);
+              if (!fileStat) continue;
+              if (since && fileStat.mtime.getTime() < since) continue;
+
+              try {
+                const content = await readFile(filePath, 'utf-8');
+                const session = JSON.parse(content);
+                const projectName = session.title || session.directory?.split('/').pop() || 'unknown';
+
+                if (projectFilter && !projectName.toLowerCase().includes(projectFilter.toLowerCase())) continue;
+                
+                const isActive = Date.now() - fileStat.mtime.getTime() < 5 * 60 * 1000;
+                if (activeOnly && !isActive) continue;
+
+                // Count messages
+                const messageDir = join(basePath, 'message', session.id);
+                let messageCount = 0;
+                try {
+                  const messages = await readdir(messageDir);
+                  messageCount = messages.filter(f => f.endsWith('.json')).length;
+                } catch {}
+
+                sessions.push({
+                  sessionId: session.id,
+                  provider: 'opencode',
+                  projectName,
+                  originalPrompt: session.title || '',
+                  lastActivityAt: fileStat.mtime.toISOString(),
+                  isActive,
+                  messageCount,
+                });
+              } catch {}
+            }
+          }
+        }
       }
-    }
-  } catch {}
+    } catch {}
+  }
 
   // Sort by last activity
   sessions.sort((a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime());
 
   return sessions;
+}
+
+async function findCodexFilesForCli(basePath) {
+  const { readdir } = await import('node:fs/promises');
+  const files = [];
+  
+  try {
+    const years = await readdir(basePath).catch(() => []);
+    for (const year of years) {
+      if (!/^\d{4}$/.test(year)) continue;
+      const months = await readdir(join(basePath, year)).catch(() => []);
+      for (const month of months) {
+        const days = await readdir(join(basePath, year, month)).catch(() => []);
+        for (const day of days) {
+          const dayFiles = await readdir(join(basePath, year, month, day)).catch(() => []);
+          for (const f of dayFiles.filter(f => f.endsWith('.jsonl') || f.endsWith('.json'))) {
+            files.push(join(basePath, year, month, day, f));
+          }
+        }
+      }
+    }
+  } catch {}
+  
+  return files;
 }
 
 function decodeProjectDir(encoded) {
@@ -390,8 +504,12 @@ async function cmdSearch(query, flags) {
 
     console.log(`${c.green}▪${c.reset} ${results.length} results for "${query}"\n`);
 
+    const providerIcons = { claude: 'C', codex: 'X', opencode: 'O' };
+    const providerColors = { claude: c.yellow, codex: c.green, opencode: c.cyan };
+
     for (const r of results.slice(0, 10)) {
-      console.log(`${c.cyan}${r.sessionId?.slice(0, 8) || '—'}${c.reset} ${r.projectName || '—'}`);
+      const pIcon = r.provider ? `${providerColors[r.provider] || c.dim}${providerIcons[r.provider] || '?'}${c.reset} ` : '';
+      console.log(`${pIcon}${c.cyan}${r.sessionId?.slice(0, 8) || '—'}${c.reset} ${r.projectName || '—'}`);
       if (r.snippet) {
         console.log(`  ${c.dim}${r.snippet.slice(0, 80)}${c.reset}`);
       }
@@ -404,26 +522,39 @@ async function cmdSearch(query, flags) {
 }
 
 async function searchDirectly(query) {
-  // Use ripgrep if available
-  try {
-    const output = execSync(
-      `rg -l -i "${query.replace(/"/g, '\\"')}" "${CLAUDE_PROJECTS_DIR}" -g "*.jsonl" 2>/dev/null | head -20`,
-      { encoding: 'utf-8', timeout: 10000 }
-    );
-    
-    return output.trim().split('\n').filter(Boolean).map(filepath => {
-      const parts = filepath.split('/');
-      const sessionId = parts.pop()?.replace('.jsonl', '') || '';
-      const projectDir = parts.pop() || '';
-      return {
-        sessionId,
-        projectName: decodeProjectDir(projectDir),
-        filepath,
-      };
-    });
-  } catch {
-    return [];
+  const results = [];
+  const providers = ['claude', 'codex', 'opencode'];
+  
+  for (const provider of providers) {
+    if (!isProviderEnabled(provider)) continue;
+    const basePath = getProviderPath(provider);
+    if (!existsSync(basePath)) continue;
+
+    try {
+      // Use ripgrep if available
+      const glob = provider === 'opencode' ? '*.json' : '*.jsonl';
+      const output = execSync(
+        `rg -l -i "${query.replace(/"/g, '\\"')}" "${basePath}" -g "${glob}" 2>/dev/null | head -10`,
+        { encoding: 'utf-8', timeout: 10000 }
+      );
+      
+      const matches = output.trim().split('\n').filter(Boolean).map(filepath => {
+        const parts = filepath.split('/');
+        const sessionId = parts.pop()?.replace(/\.(jsonl|json)$/, '') || '';
+        const projectDir = parts.pop() || '';
+        return {
+          sessionId,
+          provider,
+          projectName: provider === 'claude' ? decodeProjectDir(projectDir) : projectDir,
+          filepath,
+        };
+      });
+      
+      results.push(...matches);
+    } catch {}
   }
+  
+  return results.slice(0, 20);
 }
 
 async function cmdExport(sessionId, flags) {
@@ -489,44 +620,107 @@ async function cmdExport(sessionId, flags) {
 
 async function loadSessionDirectly(sessionId) {
   const { readdir, readFile } = await import('node:fs/promises');
+  const providers = ['claude', 'codex', 'opencode'];
   
-  try {
-    const projects = await readdir(CLAUDE_PROJECTS_DIR);
-    
-    for (const projectDir of projects) {
-      const projectPath = join(CLAUDE_PROJECTS_DIR, projectDir);
-      const files = await readdir(projectPath).catch(() => []);
-      
-      // Support partial session ID matching
-      const matchingFile = files.find(f => f.startsWith(sessionId) && f.endsWith('.jsonl'));
-      if (!matchingFile) continue;
-      
-      const filePath = join(projectPath, matchingFile);
-      try {
-        const content = await readFile(filePath, 'utf-8');
-        const lines = content.trim().split('\n').filter(Boolean);
+  for (const provider of providers) {
+    if (!isProviderEnabled(provider)) continue;
+    const basePath = getProviderPath(provider);
+    if (!existsSync(basePath)) continue;
+
+    try {
+      if (provider === 'claude') {
+        const projects = await readdir(basePath);
+        for (const projectDir of projects) {
+          const projectPath = join(basePath, projectDir);
+          const files = await readdir(projectPath).catch(() => []);
+          
+          const matchingFile = files.find(f => f.startsWith(sessionId) && f.endsWith('.jsonl'));
+          if (!matchingFile) continue;
+          
+          const content = await readFile(join(projectPath, matchingFile), 'utf-8');
+          const lines = content.trim().split('\n').filter(Boolean);
+          
+          const events = [];
+          let originalPrompt = '';
+          
+          for (const line of lines) {
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.type === 'human' || parsed.type === 'user') {
+                const text = parsed.message?.content?.[0]?.text || '';
+                if (!originalPrompt) originalPrompt = text;
+                events.push({ type: 'user', content: text, timestamp: parsed.timestamp });
+              } else if (parsed.type === 'assistant') {
+                const text = parsed.message?.content?.map(c => c.text || '').join('\n') || '';
+                events.push({ type: 'assistant', content: text, timestamp: parsed.timestamp });
+              }
+            } catch {}
+          }
+          
+          return { sessionId, provider: 'claude', originalPrompt, events };
+        }
+      } else if (provider === 'codex') {
+        const sessionFiles = await findCodexFilesForCli(basePath);
+        for (const filePath of sessionFiles) {
+          if (!filePath.includes(sessionId)) continue;
+          
+          const content = await readFile(filePath, 'utf-8');
+          const lines = content.trim().split('\n').filter(Boolean);
+          
+          const events = [];
+          let originalPrompt = '';
+          
+          for (const line of lines) {
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.role === 'user') {
+                if (!originalPrompt) originalPrompt = parsed.content || '';
+                events.push({ type: 'user', content: parsed.content || '', timestamp: parsed.timestamp });
+              } else if (parsed.role === 'assistant') {
+                events.push({ type: 'assistant', content: parsed.content || '', timestamp: parsed.timestamp });
+              }
+            } catch {}
+          }
+          
+          return { sessionId, provider: 'codex', originalPrompt, events };
+        }
+      } else if (provider === 'opencode') {
+        const sessionDir = join(basePath, 'session');
+        if (!existsSync(sessionDir)) continue;
         
-        const events = [];
-        let originalPrompt = '';
-        
-        for (const line of lines) {
+        const projects = await readdir(sessionDir).catch(() => []);
+        for (const proj of projects) {
+          const files = await readdir(join(sessionDir, proj)).catch(() => []);
+          const matchingFile = files.find(f => f.includes(sessionId) && f.endsWith('.json'));
+          if (!matchingFile) continue;
+          
+          const sessionContent = await readFile(join(sessionDir, proj, matchingFile), 'utf-8');
+          const session = JSON.parse(sessionContent);
+          
+          // Load messages
+          const messageDir = join(basePath, 'message', session.id);
+          const events = [];
+          let originalPrompt = session.title || '';
+          
           try {
-            const parsed = JSON.parse(line);
-            if (parsed.type === 'human' || parsed.type === 'user') {
-              const text = parsed.message?.content?.[0]?.text || '';
-              if (!originalPrompt) originalPrompt = text;
-              events.push({ type: 'user', content: text, timestamp: parsed.timestamp });
-            } else if (parsed.type === 'assistant') {
-              const text = parsed.message?.content?.map(c => c.text || '').join('\n') || '';
-              events.push({ type: 'assistant', content: text, timestamp: parsed.timestamp });
+            const messageFiles = await readdir(messageDir);
+            for (const msgFile of messageFiles.filter(f => f.endsWith('.json')).sort()) {
+              const msgContent = await readFile(join(messageDir, msgFile), 'utf-8');
+              const msg = JSON.parse(msgContent);
+              if (msg.role === 'user') {
+                if (!originalPrompt) originalPrompt = msg.content || '';
+                events.push({ type: 'user', content: msg.content || '', timestamp: msg.time?.created });
+              } else if (msg.role === 'assistant') {
+                events.push({ type: 'assistant', content: msg.content || '', timestamp: msg.time?.created });
+              }
             }
           } catch {}
+          
+          return { sessionId: session.id, provider: 'opencode', originalPrompt, events };
         }
-        
-        return { sessionId, originalPrompt, events };
-      } catch {}
-    }
-  } catch {}
+      }
+    } catch {}
+  }
   
   return null;
 }
@@ -750,7 +944,10 @@ async function cmdStart(flags) {
   // Build environment
   const env = { ...process.env };
   if (port !== 4450) env.PORT = String(port);
-  if (watchDir) env.CLAUDE_PROJECTS_DIR = watchDir;
+  // Note: --watch is deprecated, use config file for custom paths
+  if (watchDir) {
+    console.log(`${c.yellow}Warning:${c.reset} --watch is deprecated. Use ~/.harness/config.json to set provider paths.`);
+  }
 
   // Start daemon
   const daemonPath = join(__dirname, '../dist/daemon/serve.js');

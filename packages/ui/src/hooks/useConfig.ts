@@ -8,7 +8,7 @@ interface HarnessConfig {
   resumeFlags: string;
 }
 
-const API_BASE = "http://127.0.0.1:4451";
+const API_BASE = "";
 
 const DEFAULT_CONFIG: HarnessConfig = {
   resumeFlags: "",

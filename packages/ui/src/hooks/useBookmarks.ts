@@ -17,7 +17,7 @@ export interface Bookmark {
   updatedAt: string;
 }
 
-const API_BASE = "http://127.0.0.1:4451";
+const API_BASE = "";
 
 export function useBookmarks() {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);

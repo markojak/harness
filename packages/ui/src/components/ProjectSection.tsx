@@ -259,7 +259,7 @@ export function ProjectSection({ project, sessions, liveSessions, onSessionClick
 
         {/* Kanban */}
         {expanded && (
-          <Flex gap="2" style={{ minHeight: 160 }}>
+          <Flex gap="2" className="kanban-grid" style={{ minHeight: 160, overflowX: "auto" }}>
             <KanbanColumn 
               title="Working" 
               status="working" 

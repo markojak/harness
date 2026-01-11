@@ -70,7 +70,7 @@ export function StatsBar({ sessions }: StatsBarProps) {
     async function fetchStats() {
       try {
         // Get stats from daemon stats server (port 4451)
-        const res = await fetch("http://127.0.0.1:4451/system-stats");
+        const res = await fetch("/system-stats");
         if (res.ok) {
           const data = await res.json();
           setSystemStats(data);
@@ -106,18 +106,19 @@ export function StatsBar({ sessions }: StatsBarProps) {
     <Flex
       align="center"
       gap="4"
+      className="stats-bar"
       style={{
         marginLeft: "auto",
         fontSize: "12px",
       }}
     >
-      {/* Session counts */}
+      {/* Session counts - always visible */}
       <Flex align="center" gap="3">
         {working > 0 && (
           <Flex align="center" gap="1">
             <Text size="1" style={{ color: "var(--status-working)" }}>●</Text>
             <Text size="1" style={{ color: "var(--text-secondary)" }}>
-              {working} working
+              {working}<span className="stats-label"> working</span>
             </Text>
           </Flex>
         )}
@@ -125,7 +126,7 @@ export function StatsBar({ sessions }: StatsBarProps) {
           <Flex align="center" gap="1">
             <Text size="1" style={{ color: "var(--status-approval)" }}>●</Text>
             <Text size="1" style={{ color: "var(--text-secondary)" }}>
-              {approval} approval
+              {approval}<span className="stats-label"> approval</span>
             </Text>
           </Flex>
         )}
@@ -133,39 +134,33 @@ export function StatsBar({ sessions }: StatsBarProps) {
           <Flex align="center" gap="1">
             <Text size="1" style={{ color: "var(--status-waiting)" }}>●</Text>
             <Text size="1" style={{ color: "var(--text-secondary)" }}>
-              {waiting} waiting
+              {waiting}<span className="stats-label"> waiting</span>
             </Text>
           </Flex>
         )}
         <Text size="1" style={{ color: "var(--text-tertiary)" }}>
-          {sessions.length} total
+          {sessions.length}<span className="stats-label"> total</span>
         </Text>
       </Flex>
 
-      {/* Divider */}
-      <Box style={{ width: "1px", height: "16px", background: "var(--border-subtle)" }} />
-
-      {/* Cost & Tokens */}
-      <Flex align="center" gap="2">
+      {/* Cost & Tokens - primary info */}
+      <Flex align="center" gap="2" className="stats-cost">
+        <Box className="stats-divider" style={{ width: "1px", height: "16px", background: "var(--border-subtle)" }} />
         <Text size="1" style={{ color: "var(--accent-green)" }}>
           {todayCost}
         </Text>
-        <Text size="1" style={{ color: "var(--text-tertiary)" }}>
-          ·
-        </Text>
+        <Text size="1" style={{ color: "var(--text-tertiary)" }}>·</Text>
         <Text size="1" style={{ color: "var(--accent-cyan)" }}>
           {todayTokens}
         </Text>
-        <Text size="1" style={{ color: "var(--text-tertiary)" }}>
+        <Text size="1" className="stats-label" style={{ color: "var(--text-tertiary)" }}>
           tokens
         </Text>
       </Flex>
 
-      {/* Divider */}
-      <Box style={{ width: "1px", height: "16px", background: "var(--border-subtle)" }} />
-
-      {/* System stats */}
-      <Flex align="center" gap="3">
+      {/* System stats - secondary, hide on mobile */}
+      <Flex align="center" gap="3" className="stats-secondary">
+        <Box style={{ width: "1px", height: "16px", background: "var(--border-subtle)" }} />
         <Flex align="center" gap="1">
           <Text size="1" style={{ color: "var(--text-tertiary)" }}>cpu</Text>
           <MiniBar value={systemStats.cpuUsage} color="var(--accent-cyan)" />
@@ -176,11 +171,9 @@ export function StatsBar({ sessions }: StatsBarProps) {
         </Flex>
       </Flex>
 
-      {/* Divider */}
-      <Box style={{ width: "1px", height: "16px", background: "var(--border-subtle)" }} />
-
-      {/* Time */}
-      <Flex align="center" gap="2">
+      {/* Time - hide on mobile */}
+      <Flex align="center" gap="2" className="header-time">
+        <Box style={{ width: "1px", height: "16px", background: "var(--border-subtle)" }} />
         <Text size="1" style={{ color: "var(--text-primary)" }}>
           {time}
         </Text>

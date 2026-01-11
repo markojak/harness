@@ -1,7 +1,14 @@
 import { createStreamDB, type StreamDB } from "@durable-streams/state";
 import { sessionsStateSchema } from "./schema";
 
-const STREAM_URL = "http://127.0.0.1:4450/sessions";
+// Build stream URL dynamically based on current host
+function getStreamUrl(): string {
+  if (typeof window !== "undefined") {
+    return `${window.location.origin}/stream/sessions`;
+  }
+  // Fallback for SSR/testing
+  return "http://127.0.0.1:4451/stream/sessions";
+}
 
 export type SessionsDB = StreamDB<typeof sessionsStateSchema>;
 
@@ -19,9 +26,10 @@ export async function getSessionsDb(): Promise<SessionsDB> {
 
   if (!dbPromise) {
     dbPromise = (async () => {
+      const streamUrl = getStreamUrl();
       const db = await createStreamDB({
         streamOptions: {
-          url: STREAM_URL,
+          url: streamUrl,
           contentType: "application/json",
         },
         state: sessionsStateSchema,

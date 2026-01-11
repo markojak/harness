@@ -1,4 +1,4 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { join, extname, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -273,6 +273,33 @@ export function startStatsServer(port: number = 4451): void {
         hasRunningJobs: runningJobs.length > 0,
         hasErrors: errors.length > 0,
       }));
+      return;
+    }
+
+    // Proxy stream requests to durable streams server
+    if (req.url?.startsWith("/stream/")) {
+      const streamPath = req.url.replace("/stream", "");
+      const proxyReq = httpRequest({
+        hostname: "127.0.0.1",
+        port: port - 1, // Stream server is on port - 1 (4450 vs 4451)
+        path: streamPath,
+        method: req.method,
+        headers: {
+          ...req.headers,
+          host: `127.0.0.1:${port - 1}`,
+        },
+      }, (proxyRes) => {
+        res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
+        proxyRes.pipe(res);
+      });
+
+      proxyReq.on("error", (err) => {
+        console.error("[Proxy] Error:", err.message);
+        res.writeHead(502, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Stream proxy error" }));
+      });
+
+      req.pipe(proxyReq);
       return;
     }
 

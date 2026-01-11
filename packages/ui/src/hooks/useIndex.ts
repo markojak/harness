@@ -48,7 +48,7 @@ export function useIndex() {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("http://127.0.0.1:4451/index");
+      const res = await fetch("/index");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setIndex(data);

@@ -176,24 +176,26 @@ function IndexPage() {
         {/* Search Input (only in search mode) */}
         {searchMode === "search" && (
           <Box style={{ position: "relative", flex: 1, maxWidth: "500px" }}>
-            <input
-              type="text"
-              placeholder={providerFilter === "all" ? "Search all sessions..." : `Search ${providerFilter} sessions...`}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              style={{
-                width: "100%",
-                padding: "8px 12px",
-                paddingRight: query ? "32px" : "12px",
-                background: "var(--bg-surface)",
-                border: "1px solid var(--border-subtle)",
-                borderRadius: "3px",
-                color: "var(--text-primary)",
-                fontSize: "13px",
-                fontFamily: "inherit",
-                outline: "none",
-              }}
-            />
+            <form onSubmit={(e) => { e.preventDefault(); }} style={{ margin: 0 }}>
+              <input
+                type="text"
+                placeholder={providerFilter === "all" ? "Search sessions..." : `Search ${providerFilter}...`}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  paddingRight: query ? "32px" : "12px",
+                  background: "var(--bg-surface)",
+                  border: "1px solid var(--border-subtle)",
+                  borderRadius: "3px",
+                  color: "var(--text-primary)",
+                  fontSize: "13px",
+                  fontFamily: "inherit",
+                  outline: "none",
+                }}
+              />
+            </form>
             {query && (
               <Text
                 size="1"
@@ -203,19 +205,28 @@ function IndexPage() {
                   top: "50%",
                   transform: "translateY(-50%)",
                   color: "var(--text-tertiary)",
-                cursor: "pointer",
-              }}
-              onClick={clearSearch}
-            >
-              ✕
-            </Text>
-          )}
-        </Box>
-        )}
-        {searchMode === "search" && searchLoading && (
-          <Text size="1" style={{ color: "var(--text-tertiary)" }}>
-            searching...
-          </Text>
+                  cursor: "pointer",
+                }}
+                onClick={clearSearch}
+              >
+                ✕
+              </Text>
+            )}
+            {searchLoading && (
+              <Text
+                size="1"
+                style={{
+                  position: "absolute",
+                  right: query ? "30px" : "10px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--text-tertiary)",
+                }}
+              >
+                ...
+              </Text>
+            )}
+          </Box>
         )}
       </Flex>
 
@@ -296,6 +307,7 @@ function IndexPage() {
             goal: selectedSession.goal,
             lastActivityAt: selectedSession.lastActivityAt,
             cwd: selectedSession.cwd,
+            provider: selectedSession.provider,
           }}
           onClose={() => setSelectedSession(null)}
           resumeFlags={config.resumeFlags}

@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import type { SearchResult } from "../components/SearchResults";
 
-const API_BASE = "http://127.0.0.1:4451";
+const API_BASE = "";
 const DEBOUNCE_MS = 200;
 
 export function useSearch() {

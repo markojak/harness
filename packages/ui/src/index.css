@@ -335,3 +335,84 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-strong);
 }
+
+/* =====================
+   Mobile Responsive
+   ===================== */
+@media (max-width: 768px) {
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+
+  /* Kanban single column on mobile */
+  .kanban-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .kanban-column {
+    width: 100% !important;
+    min-height: auto !important;
+    min-width: 0 !important;
+  }
+
+  /* Session cards full width */
+  .session-card {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Hide resume command on mobile */
+  .resume-command {
+    display: none !important;
+  }
+
+  /* Hide time in header on mobile */
+  .header-time {
+    display: none !important;
+  }
+
+  /* Compact stats */
+  .stats-item-label {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra small screens */
+  .session-card {
+    padding: 8px 10px;
+  }
+
+  /* Hide less important stats */
+  .stats-secondary {
+    display: none;
+  }
+}
+
+/* Stats bar mobile */
+@media (max-width: 768px) {
+  .stats-bar {
+    gap: 8px !important;
+  }
+  
+  .stats-label {
+    display: none;
+  }
+  
+  .stats-secondary {
+    display: none !important;
+  }
+  
+  .stats-divider {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-cost {
+    display: none !important;
+  }
+}

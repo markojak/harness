@@ -199,7 +199,7 @@ export function StatusIndicator() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:4451/status");
+        const res = await fetch("/status");
         if (res.ok) {
           setStatus(await res.json());
         }

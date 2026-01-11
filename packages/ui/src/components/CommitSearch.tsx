@@ -74,7 +74,7 @@ export function CommitSearch({ onSessionClick, onClose }: CommitSearchProps) {
     const timeout = setTimeout(async () => {
       setLookingUp(true);
       try {
-        const res = await fetch(`http://127.0.0.1:4451/commit-repo/${hash}`);
+        const res = await fetch(`/commit-repo/${hash}`);
         if (res.ok) {
           const data = await res.json();
           setRepoHint(data.repo);
@@ -96,7 +96,7 @@ export function CommitSearch({ onSessionClick, onClose }: CommitSearchProps) {
     setResult(null);
 
     try {
-      const res = await fetch(`http://127.0.0.1:4451/commit/${hash}`);
+      const res = await fetch(`/commit/${hash}`);
       if (res.ok) {
         setResult(await res.json());
       } else {

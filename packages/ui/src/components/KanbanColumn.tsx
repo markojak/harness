@@ -53,6 +53,7 @@ export function KanbanColumn({ title, sessions, color, onSessionClick }: KanbanC
 
   return (
     <Box
+      className="kanban-column"
       style={{
         flex: 1,
         minWidth: 280,

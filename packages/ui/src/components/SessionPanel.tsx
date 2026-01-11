@@ -14,6 +14,7 @@ interface SessionPanelProps {
     goal: string | null;
     lastActivityAt: string;
     cwd: string;
+    provider?: "claude" | "codex" | "opencode";
   } | null;
   onClose: () => void;
   resumeFlags: string;
@@ -340,7 +341,7 @@ export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProp
     if (!session) return;
 
     setLoading(true);
-    fetch(`http://127.0.0.1:4451/session/${session.sessionId}`)
+    fetch(`/session/${session.sessionId}`)
       .then(res => res.json())
       .then(data => {
         setSessionData(data);
@@ -353,7 +354,20 @@ export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProp
 
   if (!session) return null;
 
-  const resumeCommand = `claude --resume ${session.sessionId}${resumeFlags ? ` ${resumeFlags}` : ""}`;
+  // Provider-aware resume command
+  const getResumeCommand = () => {
+    const provider = session.provider || "claude";
+    switch (provider) {
+      case "codex":
+        return `codex --resume ${session.sessionId}`;
+      case "opencode":
+        return `opencode resume ${session.sessionId}`;
+      case "claude":
+      default:
+        return `claude --resume ${session.sessionId}${resumeFlags ? ` ${resumeFlags}` : ""}`;
+    }
+  };
+  const resumeCommand = getResumeCommand();
 
   return (
     <>
@@ -428,6 +442,7 @@ export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProp
           
           {/* Resume command */}
           <Flex
+            className="resume-command"
             align="center"
             justify="between"
             p="2"

@@ -15,7 +15,7 @@ interface FileChange {
 }
 
 interface Event {
-  type: "user" | "assistant" | "tool";
+  type: "user" | "assistant" | "tool" | "thinking";
   timestamp: string;
   content: string;
   toolName?: string;
@@ -66,6 +66,14 @@ export async function extractSessionDetail(filepath: string): Promise<SessionDet
           const blocks = entry.message.content;
           if (Array.isArray(blocks)) {
             for (const block of blocks) {
+              // Extract thinking blocks
+              if (block.type === "thinking" && block.thinking) {
+                events.push({
+                  type: "thinking",
+                  timestamp: entry.timestamp || "",
+                  content: block.thinking,
+                });
+              }
               if (block.type === "text" && block.text) {
                 events.push({
                   type: "assistant",

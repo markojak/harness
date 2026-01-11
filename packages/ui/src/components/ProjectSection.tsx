@@ -2,7 +2,7 @@
  * Project section - handles both active (Kanban) and dormant (session list) views
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Box, Flex, Text } from "@radix-ui/themes";
 import { KanbanColumn } from "./KanbanColumn";
 import { SessionCard } from "./SessionCard";
@@ -147,7 +147,7 @@ function SessionWithAgents({
         >
           <SessionCard
             session={toSessionCardFormat(group.session)}
-            disableHover={false}
+            disableHover={true}
           />
         </Box>
         
@@ -194,7 +194,7 @@ function SessionWithAgents({
                 session={{
                   ...toSessionCardFormat(agent),
                 }}
-                disableHover={false}
+                disableHover={true}
               />
             </Box>
           ))}
@@ -205,9 +205,19 @@ function SessionWithAgents({
 }
 
 export function ProjectSection({ project, sessions, liveSessions, onSessionClick }: ProjectSectionProps) {
-  const [expanded, setExpanded] = useState(project.isActive || sessions.length <= 5);
+  // Check if there are live sessions
+  const hasActiveSessions = liveSessions.length > 0;
+  const isActive = project.isActive || hasActiveSessions;
   
-  const isActive = project.isActive || liveSessions.length > 0;
+  // Start expanded if active or few sessions
+  const [expanded, setExpanded] = useState(true);
+  
+  // When liveSessions change and we have active sessions, auto-expand
+  useEffect(() => {
+    if (hasActiveSessions) {
+      setExpanded(true);
+    }
+  }, [hasActiveSessions]);
   
   // For active projects, use live sessions for Kanban
   // For dormant, show indexed sessions as cards

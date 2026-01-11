@@ -416,3 +416,17 @@ body {
     display: none !important;
   }
 }
+
+/* Session panel responsive */
+@media (max-width: 768px) {
+  .session-panel {
+    width: 100vw !important;
+    min-width: 0 !important;
+  }
+}
+
+@media (min-width: 1200px) {
+  .session-panel {
+    width: 45vw !important;
+  }
+}

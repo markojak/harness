@@ -52,16 +52,25 @@ const CodexLogo = ({ size = 16, color = "currentColor" }: { size?: number; color
   </svg>
 );
 
-// OpenCode logo - terminal/code brackets (Google blue for Gemini)
+// OpenCode logo - based on official brand (geometric square design)
 const OpenCodeLogo = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
   <svg
     width={size}
     height={size}
     viewBox="0 0 24 24"
-    fill={color}
+    fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
-    <path d="M8.293 6.293L2.586 12l5.707 5.707 1.414-1.414L5.414 12l4.293-4.293-1.414-1.414zm7.414 0l-1.414 1.414L18.586 12l-4.293 4.293 1.414 1.414L21.414 12l-5.707-5.707z" />
+    {/* Outer frame */}
+    <path 
+      d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V5H19V19Z" 
+      fill={color}
+    />
+    {/* Inner square */}
+    <path 
+      d="M15 9H9V15H15V9Z" 
+      fill={color}
+    />
   </svg>
 );
 

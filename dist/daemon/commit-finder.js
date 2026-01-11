@@ -14,6 +14,7 @@ import { readdir, stat } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { existsSync } from "node:fs";
 import { findSessionsByFilePaths } from "./ripgrep.js";
+import { getAllSessionCwds } from "./search.js";
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS = 7 * ONE_DAY_MS;
 const execAsync = promisify(exec);
@@ -21,21 +22,26 @@ const CLAUDE_PROJECTS_DIR = `${process.env.HOME}/.claude/projects`;
 /**
  * Decode the encoded directory name back to a path
  */
+/**
+ * Decode encoded directory name (used for display purposes only).
+ * Note: This is lossy for directory names containing dashes.
+ */
 function decodeEncodedDir(encoded) {
     return encoded.replace(/^-/, "/").replace(/-/g, "/");
 }
 /**
- * Get all known git roots from indexed sessions
+ * Get all known git roots from indexed session cwds.
+ * Uses actual cwd paths from the search index (all providers).
  */
 async function getKnownGitRoots() {
     const roots = new Set();
     try {
-        const projectDirs = await readdir(CLAUDE_PROJECTS_DIR);
-        for (const encoded of projectDirs) {
-            const decoded = decodeEncodedDir(encoded);
+        // Get all unique cwds from indexed sessions
+        const cwds = getAllSessionCwds();
+        for (const cwd of cwds) {
             // Walk up to find .git
-            let current = decoded;
-            while (current !== "/") {
+            let current = cwd;
+            while (current && current !== "/") {
                 if (existsSync(join(current, ".git"))) {
                     roots.add(current);
                     break;
@@ -44,8 +50,8 @@ async function getKnownGitRoots() {
             }
         }
     }
-    catch {
-        // Projects dir doesn't exist
+    catch (err) {
+        console.error("[CommitFinder] Error getting git roots:", err);
     }
     return Array.from(roots);
 }

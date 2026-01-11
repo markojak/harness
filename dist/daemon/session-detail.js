@@ -35,6 +35,14 @@ export async function extractSessionDetail(filepath) {
                     const blocks = entry.message.content;
                     if (Array.isArray(blocks)) {
                         for (const block of blocks) {
+                            // Extract thinking blocks
+                            if (block.type === "thinking" && block.thinking) {
+                                events.push({
+                                    type: "thinking",
+                                    timestamp: entry.timestamp || "",
+                                    content: block.thinking,
+                                });
+                            }
                             if (block.type === "text" && block.text) {
                                 events.push({
                                     type: "assistant",

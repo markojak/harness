@@ -83,3 +83,7 @@ export declare function bulkIndexSessions(sessions: Array<{
  * Clear search index
  */
 export declare function clearSearchIndex(): void;
+/**
+ * Get all unique cwds from indexed sessions
+ */
+export declare function getAllSessionCwds(): string[];

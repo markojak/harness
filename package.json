@@ -16,6 +16,9 @@
     "start": "node bin/cli.js",
     "build": "pnpm --filter @claude-code-ui/daemon build && pnpm --filter @claude-code-ui/ui build && pnpm run build:bundle",
     "build:bundle": "node scripts/bundle.js",
+    "clean": "rm -rf node_modules packages/*/node_modules pnpm-lock.yaml dist",
+    "reinstall": "pnpm clean && pnpm install && pnpm build",
+    "postinstall": "pnpm rebuild better-sqlite3 || true",
     "prepublishOnly": "pnpm run build"
   },
   "keywords": [
@@ -41,7 +44,7 @@
   },
   "homepage": "https://github.com/markojak/harness#readme",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",

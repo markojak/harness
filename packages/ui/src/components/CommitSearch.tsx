@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Flex, Text, Box, ScrollArea } from "@radix-ui/themes";
+import { ProviderBadge, type Provider } from "./ProviderIcon";
 
 const SPINNER_FRAMES = ["⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷"];
 
@@ -42,6 +43,7 @@ interface SessionMatch {
   score: number;
   matchedFiles: string[];
   filepath: string;
+  provider?: "claude" | "codex" | "opencode";
 }
 
 interface CommitResult {
@@ -52,10 +54,9 @@ interface CommitResult {
 
 interface CommitSearchProps {
   onSessionClick: (sessionId: string) => void;
-  onClose: () => void;
 }
 
-export function CommitSearch({ onSessionClick, onClose }: CommitSearchProps) {
+export function CommitSearch({ onSessionClick }: CommitSearchProps) {
   const [hash, setHash] = useState("");
   const [repoHint, setRepoHint] = useState<string | null>(null);
   const [result, setResult] = useState<CommitResult | null>(null);
@@ -112,8 +113,6 @@ export function CommitSearch({ onSessionClick, onClose }: CommitSearchProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       searchCommit();
-    } else if (e.key === "Escape") {
-      onClose();
     }
   };
 
@@ -131,65 +130,56 @@ export function CommitSearch({ onSessionClick, onClose }: CommitSearchProps) {
 
   return (
     <Flex direction="column" gap="3">
-      {/* Search input with repo hint */}
-      <Flex align="center" gap="2">
-        <Box style={{ position: "relative", flex: 1, maxWidth: "500px" }}>
-          <input
-            type="text"
-            placeholder="Enter commit hash (e.g., abc123f)..."
-            value={hash}
-            onChange={(e) => setHash(e.target.value.toLowerCase())}
-            onKeyDown={handleKeyDown}
-            autoFocus
+      {/* Search input with repo hint - full width */}
+      <Box style={{ position: "relative", width: "100%" }}>
+        <input
+          type="text"
+          placeholder="Enter commit hash (e.g., abc123f)..."
+          value={hash}
+          onChange={(e) => setHash(e.target.value.toLowerCase())}
+          onKeyDown={handleKeyDown}
+          autoFocus
+          style={{
+            width: "100%",
+            padding: "8px 12px",
+            paddingRight: repoHint ? "120px" : "12px",
+            background: "var(--bg-surface)",
+            border: "1px solid var(--border-subtle)",
+            borderRadius: "3px",
+            color: "var(--text-primary)",
+            fontSize: "13px",
+            fontFamily: "inherit",
+            outline: "none",
+          }}
+        />
+        {(repoHint || lookingUp) && (
+          <Flex
+            align="center"
+            gap="1"
             style={{
-              width: "100%",
-              padding: "8px 12px",
-              paddingRight: repoHint ? "120px" : "12px",
-              background: "var(--bg-surface)",
-              border: "1px solid var(--border-subtle)",
-              borderRadius: "3px",
-              color: "var(--text-primary)",
-              fontSize: "13px",
-              fontFamily: "inherit",
-              outline: "none",
+              position: "absolute",
+              right: "10px",
+              top: "50%",
+              transform: "translateY(-50%)",
             }}
-          />
-          {(repoHint || lookingUp) && (
-            <Flex
-              align="center"
-              gap="1"
-              style={{
-                position: "absolute",
-                right: "10px",
-                top: "50%",
-                transform: "translateY(-50%)",
-              }}
-            >
-              {lookingUp ? (
+          >
+            {lookingUp ? (
+              <Text size="1" style={{ color: "var(--text-tertiary)" }}>
+                ⣾
+              </Text>
+            ) : repoHint ? (
+              <>
                 <Text size="1" style={{ color: "var(--text-tertiary)" }}>
-                  ⣾
+                  📁
                 </Text>
-              ) : repoHint ? (
-                <>
-                  <Text size="1" style={{ color: "var(--text-tertiary)" }}>
-                    📁
-                  </Text>
-                  <Text size="1" style={{ color: "var(--accent-cyan)" }}>
-                    {repoHint}
-                  </Text>
-                </>
-              ) : null}
-            </Flex>
-          )}
-        </Box>
-        <Text
-          size="1"
-          style={{ color: "var(--text-tertiary)", cursor: "pointer" }}
-          onClick={onClose}
-        >
-          ✕ close
-        </Text>
-      </Flex>
+                <Text size="1" style={{ color: "var(--accent-cyan)" }}>
+                  {repoHint}
+                </Text>
+              </>
+            ) : null}
+          </Flex>
+        )}
+      </Box>
 
       {/* Loading */}
       {loading && (
@@ -282,7 +272,7 @@ export function CommitSearch({ onSessionClick, onClose }: CommitSearchProps) {
                 {result.sessions.length !== 1 ? "s" : ""} may have created this
                 commit
               </Text>
-              <ScrollArea style={{ maxHeight: "400px" }}>
+              <ScrollArea style={{ maxHeight: "220px" }}>
                 <Flex direction="column" gap="1">
                   {result.sessions.map((session) => (
                     <Box
@@ -299,6 +289,7 @@ export function CommitSearch({ onSessionClick, onClose }: CommitSearchProps) {
                       <Flex direction="column" gap="1">
                         <Flex align="center" justify="between">
                           <Flex align="center" gap="2">
+                            <ProviderBadge provider={(session.provider || "claude") as Provider} />
                             <Text
                               size="1"
                               style={{

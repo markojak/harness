@@ -24,7 +24,7 @@ interface SessionData {
   summaries: Array<{ summary: string; timestamp: string }>;
   files: Array<{ path: string; action: "created" | "modified" | "deleted" }>;
   events: Array<{
-    type: "user" | "assistant" | "tool";
+    type: "user" | "assistant" | "tool" | "thinking";
     timestamp: string;
     content: string;
     toolName?: string;
@@ -99,57 +99,24 @@ function CopyButton({ text, label }: { text: string; label?: string }) {
   );
 }
 
-function SummaryAccordion({ summary, timestamp, index }: { summary: string; timestamp: string; index: number }) {
-  const [expanded, setExpanded] = useState(index === 0); // First one expanded by default
-  const preview = summary.slice(0, 150) + (summary.length > 150 ? "..." : "");
-
-  return (
-    <Box
-      style={{
-        background: "var(--bg-elevated)",
-        border: "1px solid var(--border-subtle)",
-        borderRadius: "3px",
-        overflow: "hidden",
-      }}
-    >
-      <Flex
-        justify="between"
-        align="center"
-        p="3"
-        style={{ cursor: "pointer" }}
-        onClick={() => setExpanded(!expanded)}
-      >
-        <Flex align="center" gap="2">
-          <Text size="1" style={{ color: "var(--text-tertiary)" }}>
-            {expanded ? "▾" : "▸"}
-          </Text>
-          <Text size="1" style={{ color: "var(--text-tertiary)" }}>
-            {formatTime(timestamp)}
-          </Text>
-          {!expanded && (
-            <Text size="1" style={{ color: "var(--text-secondary)" }}>
-              {preview}
-            </Text>
-          )}
-        </Flex>
-        <CopyButton text={summary} />
+function CompactionTab({ summaries, loading, provider }: { summaries: SessionData["summaries"]; loading: boolean; provider?: string }) {
+  // Check if provider supports compactions (currently only Claude)
+  const supportsCompaction = !provider || provider === "claude";
+  
+  if (!supportsCompaction) {
+    return (
+      <Flex align="center" justify="center" py="9">
+        <Text size="1" style={{ color: "var(--text-tertiary)" }}>
+          Compactions not available for {provider} sessions
+        </Text>
       </Flex>
-      {expanded && (
-        <Box px="3" pb="3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
-          <Text size="2" style={{ color: "var(--text-primary)", whiteSpace: "pre-wrap" }}>
-            {summary}
-          </Text>
-        </Box>
-      )}
-    </Box>
-  );
-}
+    );
+  }
 
-function SummaryTab({ summaries, loading }: { summaries: SessionData["summaries"]; loading: boolean }) {
   if (loading) {
     return (
       <Flex align="center" justify="center" py="9">
-        <Spinner /> <Text size="1" style={{ marginLeft: "8px", color: "var(--text-tertiary)" }}>Loading summaries...</Text>
+        <Spinner /> <Text size="1" style={{ marginLeft: "8px", color: "var(--text-tertiary)" }}>Loading compactions...</Text>
       </Flex>
     );
   }
@@ -165,11 +132,62 @@ function SummaryTab({ summaries, loading }: { summaries: SessionData["summaries"
   return (
     <ScrollArea style={{ height: "100%" }}>
       <Flex direction="column" gap="2" p="3">
+        <Text size="1" style={{ color: "var(--text-tertiary)", marginBottom: "8px" }}>
+          {summaries.length} context snapshot{summaries.length !== 1 ? "s" : ""} (compactions)
+        </Text>
         {summaries.map((s, i) => (
-          <SummaryAccordion key={i} summary={s.summary} timestamp={s.timestamp} index={i} />
+          <Box
+            key={i}
+            p="2"
+            style={{
+              background: "var(--bg-base)",
+              borderRadius: "3px",
+              border: "1px solid var(--border-subtle)",
+            }}
+          >
+            <Text size="2" style={{ color: "var(--text-primary)", lineHeight: "1.5" }}>
+              {s.summary}
+            </Text>
+            {s.timestamp && (
+              <Text size="1" style={{ color: "var(--text-tertiary)", marginTop: "4px", display: "block" }}>
+                {new Date(s.timestamp).toLocaleTimeString()}
+              </Text>
+            )}
+          </Box>
         ))}
       </Flex>
     </ScrollArea>
+  );
+}
+
+function ThinkingBlock({ content }: { content: string }) {
+  const [expanded, setExpanded] = useState(false);
+  
+  return (
+    <Box
+      onClick={() => setExpanded(!expanded)}
+      style={{ cursor: "pointer" }}
+    >
+      <Flex gap="1" align="center">
+        <Text size="2" style={{ color: "var(--accent-orange, #f97316)", fontSize: "14px" }}>
+          {expanded ? "▾" : "▸"}
+        </Text>
+        <Text
+          size="2"
+          style={{
+            color: "var(--text-primary)",
+            flex: 1,
+            overflow: expanded ? "visible" : "hidden",
+            textOverflow: expanded ? "clip" : "ellipsis",
+            whiteSpace: expanded ? "pre-wrap" : "nowrap",
+            lineHeight: "1.5",
+            fontSize: "14px",
+          }}
+        >
+          {expanded ? content : content.slice(0, 80) + (content.length > 80 ? "..." : "")}
+        </Text>
+      </Flex>
+    </Box>
   );
 }
 
@@ -219,41 +237,51 @@ function TranscriptTab({ events, loading, searchQuery, setSearchQuery }: {
             {filtered.map((event, i) => (
               <Box
                 key={i}
-                py="1"
+                py="2"
                 px="2"
                 style={{
                   borderBottom: "1px solid var(--border-subtle)",
                 }}
               >
                 <Flex gap="2" align="start">
-                  <Text size="1" style={{ color: "var(--text-tertiary)", minWidth: "40px" }}>
+                  <Text size="2" style={{ color: "var(--text-tertiary)", minWidth: "45px", lineHeight: "1.5", fontSize: "14px" }}>
                     {formatTime(event.timestamp)}
                   </Text>
                   <Text
-                    size="1"
+                    size="2"
                     style={{
                       color: event.type === "user"
                         ? "var(--accent-cyan)"
                         : event.type === "tool"
                         ? "var(--accent-purple)"
+                        : event.type === "thinking"
+                        ? "var(--accent-orange, #f97316)"
                         : "var(--text-secondary)",
-                      minWidth: "50px",
+                      minWidth: "55px",
+                      lineHeight: "1.5",
+                      fontSize: "14px",
                     }}
                   >
                     {event.type === "tool" ? event.toolName : event.type}
                   </Text>
-                  <Text
-                    size="1"
-                    style={{
-                      color: "var(--text-primary)",
-                      flex: 1,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {event.target || event.content.slice(0, 100)}
-                  </Text>
+                  {event.type === "thinking" ? (
+                    <ThinkingBlock content={event.content} />
+                  ) : (
+                    <Text
+                      size="2"
+                      style={{
+                        color: "var(--text-primary)",
+                        flex: 1,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        lineHeight: "1.5",
+                        fontSize: "14px",
+                      }}
+                    >
+                      {event.target || event.content.slice(0, 100)}
+                    </Text>
+                  )}
                 </Flex>
               </Box>
             ))}
@@ -327,7 +355,7 @@ function FilesTab({ files, loading }: { files: SessionData["files"]; loading: bo
 }
 
 export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProps) {
-  const [activeTab, setActiveTab] = useState<"summary" | "transcript" | "files">("summary");
+  const [activeTab, setActiveTab] = useState<"transcript" | "compaction" | "files">("transcript");
   const [loading, setLoading] = useState(true);
   const [sessionData, setSessionData] = useState<SessionData>({
     summaries: [],
@@ -385,14 +413,16 @@ export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProp
         }}
       />
       
-      {/* Panel */}
+      {/* Panel - 50% width on desktop, 90% on mobile */}
       <Box
+        className="session-panel"
         style={{
           position: "fixed",
           top: 0,
           right: 0,
           bottom: 0,
-          width: "450px",
+          width: "50vw",
+          minWidth: "400px",
           maxWidth: "90vw",
           background: "var(--bg-surface)",
           borderLeft: "1px solid var(--border-default)",
@@ -406,13 +436,11 @@ export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProp
         <Flex
           direction="column"
           p="3"
-          gap="2"
+          gap="4"
           style={{ borderBottom: "1px solid var(--border-subtle)" }}
         >
-          <Flex justify="between" align="center">
-            <Text size="2" weight="medium" style={{ color: "var(--text-primary)" }}>
-              {session.goal || session.originalPrompt?.slice(0, 40) || "Session"}
-            </Text>
+          {/* Close button */}
+          <Flex justify="end">
             <Text
               size="1"
               style={{ color: "var(--text-tertiary)", cursor: "pointer" }}
@@ -422,7 +450,27 @@ export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProp
             </Text>
           </Flex>
           
-          <Flex align="center" gap="2">
+          {/* Title */}
+          <Text 
+            size="3" 
+            weight="medium" 
+            style={{ 
+              color: "var(--text-primary)",
+              lineHeight: "1.4",
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
+              display: "-webkit-box",
+              WebkitLineClamp: 3,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+            title={session.goal || session.originalPrompt || "Session"}
+          >
+            {session.goal || session.originalPrompt?.slice(0, 150) || "Session"}
+          </Text>
+          
+          {/* Project info */}
+          <Flex align="center" gap="2" style={{ flexWrap: "wrap" }}>
             <Text size="1" style={{ color: "var(--accent-cyan)" }}>
               {session.projectName}
             </Text>
@@ -466,31 +514,31 @@ export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProp
           py="2"
           style={{ borderBottom: "1px solid var(--border-subtle)" }}
         >
-          {(["summary", "transcript", "files"] as const).map((tab) => (
+          {([
+            { id: "transcript", label: "Transcript" },
+            { id: "compaction", label: "Compactions" },
+            { id: "files", label: "Files" },
+          ] as const).map(({ id, label }) => (
             <Box
-              key={tab}
+              key={id}
               px="2"
               py="1"
               style={{
-                color: activeTab === tab ? "var(--text-primary)" : "var(--text-tertiary)",
-                background: activeTab === tab ? "var(--bg-elevated)" : "transparent",
+                color: activeTab === id ? "var(--text-primary)" : "var(--text-tertiary)",
+                background: activeTab === id ? "var(--bg-elevated)" : "transparent",
                 borderRadius: "2px",
                 cursor: "pointer",
-                textTransform: "capitalize",
                 fontSize: "12px",
               }}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => setActiveTab(id)}
             >
-              {tab}
+              {label}
             </Box>
           ))}
         </Flex>
 
         {/* Tab content - full height, each tab handles its own scrolling */}
         <Box style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          {activeTab === "summary" && (
-            <SummaryTab summaries={sessionData.summaries} loading={loading} />
-          )}
           {activeTab === "transcript" && (
             <TranscriptTab
               events={sessionData.events}
@@ -498,6 +546,9 @@ export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProp
               searchQuery={transcriptSearch}
               setSearchQuery={setTranscriptSearch}
             />
+          )}
+          {activeTab === "compaction" && (
+            <CompactionTab summaries={sessionData.summaries} loading={loading} provider={session.provider} />
           )}
           {activeTab === "files" && (
             <FilesTab files={sessionData.files} loading={loading} />

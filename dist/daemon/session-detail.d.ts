@@ -10,7 +10,7 @@ interface FileChange {
     action: "created" | "modified" | "deleted";
 }
 interface Event {
-    type: "user" | "assistant" | "tool";
+    type: "user" | "assistant" | "tool" | "thinking";
     timestamp: string;
     content: string;
     toolName?: string;

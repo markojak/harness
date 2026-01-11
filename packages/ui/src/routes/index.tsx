@@ -27,7 +27,7 @@ function IndexPage() {
   const { index, loading: indexLoading } = useIndex();
   const { query, setQuery, results, loading: searchLoading, isSearching, clearSearch } = useSearch();
   const { config } = useConfig();
-  
+
   const [selectedSession, setSelectedSession] = useState<IndexedSession | null>(null);
   const [searchMode, setSearchMode] = useState<SearchMode>("search");
   const [providerFilter, setProviderFilter] = useState<ProviderFilterValue>("all");
@@ -53,12 +53,12 @@ function IndexPage() {
   // Group live sessions by project
   const liveSessionsByProject = new Map<string, Session[]>();
   for (const session of liveSessions) {
-    const matchingProject = index.projects.find(p => 
-      p.gitRepoId === session.gitRepoId || 
+    const matchingProject = index.projects.find(p =>
+      p.gitRepoId === session.gitRepoId ||
       p.projectId === session.cwd ||
       session.cwd.startsWith(p.projectId)
     );
-    
+
     if (matchingProject) {
       if (!liveSessionsByProject.has(matchingProject.projectId)) {
         liveSessionsByProject.set(matchingProject.projectId, []);
@@ -71,15 +71,15 @@ function IndexPage() {
   const sortedProjects = [...index.projects].sort((a, b) => {
     const aLive = liveSessionsByProject.get(a.projectId)?.length || 0;
     const bLive = liveSessionsByProject.get(b.projectId)?.length || 0;
-    
+
     if (aLive > 0 && bLive === 0) return -1;
     if (bLive > 0 && aLive === 0) return 1;
-    
+
     return new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime();
   });
 
   // Combine all sessions for stats
-  const allSessions = liveSessions.length > 0 ? liveSessions : 
+  const allSessions = liveSessions.length > 0 ? liveSessions :
     index.sessions.slice(0, 20).map(s => ({
       sessionId: s.sessionId,
       status: s.isActive ? "working" : "idle",
@@ -120,18 +120,10 @@ function IndexPage() {
         <StatsBar sessions={allSessions} />
       </Flex>
 
-      {/* Search Mode Toggle + Search */}
-      <Flex align="center" gap="2">
-        {/* Mode Toggle */}
-        <Flex
-          align="center"
-          style={{
-            background: "var(--bg-surface)",
-            border: "1px solid var(--border-subtle)",
-            borderRadius: "3px",
-            overflow: "hidden",
-          }}
-        >
+      {/* Search Section */}
+      <Box>
+        {/* Mode Toggle - above search bar */}
+        <Flex align="center" gap="2" mb="2">
           <Box
             px="2"
             py="1"
@@ -141,6 +133,7 @@ function IndexPage() {
               cursor: "pointer",
               fontSize: "12px",
               lineHeight: "1.4",
+              borderRadius: "3px",
             }}
             onClick={() => {
               setSearchMode("search");
@@ -158,6 +151,7 @@ function IndexPage() {
               cursor: "pointer",
               fontSize: "12px",
               lineHeight: "1.4",
+              borderRadius: "3px",
             }}
             onClick={() => {
               setSearchMode("commits");
@@ -168,67 +162,73 @@ function IndexPage() {
           </Box>
         </Flex>
 
-        {/* Provider Filter (only in search mode) */}
+        {/* Search Input with Provider Filter inside on left */}
         {searchMode === "search" && (
-          <ProviderFilter value={providerFilter} onChange={setProviderFilter} />
+          <Flex
+            align="center"
+            style={{
+              width: "100%",
+              background: "var(--bg-surface)",
+              border: "1px solid var(--border-subtle)",
+              borderRadius: "3px",
+            }}
+          >
+            {/* Provider Filter inside on left */}
+            <ProviderFilter value={providerFilter} onChange={setProviderFilter} />
+            <Box style={{ position: "relative", flex: 1 }}>
+              <form onSubmit={(e) => { e.preventDefault(); }} style={{ margin: 0 }}>
+                <input
+                  type="text"
+                  placeholder={providerFilter === "all" ? "Search sessions..." : `Search ${providerFilter}...`}
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    paddingRight: query ? "32px" : "12px",
+                    background: "transparent",
+                    border: "none",
+                    color: "var(--text-primary)",
+                    fontSize: "13px",
+                    fontFamily: "inherit",
+                    outline: "none",
+                  }}
+                />
+              </form>
+              {query && (
+                <Text
+                  size="1"
+                  style={{
+                    position: "absolute",
+                    right: "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "var(--text-tertiary)",
+                    cursor: "pointer",
+                  }}
+                  onClick={clearSearch}
+                >
+                  ✕
+                </Text>
+              )}
+              {searchLoading && (
+                <Text
+                  size="1"
+                  style={{
+                    position: "absolute",
+                    right: query ? "30px" : "10px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "var(--text-tertiary)",
+                  }}
+                >
+                  ...
+                </Text>
+              )}
+            </Box>
+          </Flex>
         )}
-
-        {/* Search Input (only in search mode) */}
-        {searchMode === "search" && (
-          <Box style={{ position: "relative", flex: 1, maxWidth: "500px" }}>
-            <form onSubmit={(e) => { e.preventDefault(); }} style={{ margin: 0 }}>
-              <input
-                type="text"
-                placeholder={providerFilter === "all" ? "Search sessions..." : `Search ${providerFilter}...`}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  paddingRight: query ? "32px" : "12px",
-                  background: "var(--bg-surface)",
-                  border: "1px solid var(--border-subtle)",
-                  borderRadius: "3px",
-                  color: "var(--text-primary)",
-                  fontSize: "13px",
-                  fontFamily: "inherit",
-                  outline: "none",
-                }}
-              />
-            </form>
-            {query && (
-              <Text
-                size="1"
-                style={{
-                  position: "absolute",
-                  right: "10px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--text-tertiary)",
-                  cursor: "pointer",
-                }}
-                onClick={clearSearch}
-              >
-                ✕
-              </Text>
-            )}
-            {searchLoading && (
-              <Text
-                size="1"
-                style={{
-                  position: "absolute",
-                  right: query ? "30px" : "10px",
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--text-tertiary)",
-                }}
-              >
-                ...
-              </Text>
-            )}
-          </Box>
-        )}
-      </Flex>
+      </Box>
 
       {/* Commit Search (when in commits mode) */}
       {searchMode === "commits" && (
@@ -237,14 +237,13 @@ function IndexPage() {
             const session = index.sessions.find(s => s.sessionId === sessionId);
             if (session) handleSessionClick(session);
           }}
-          onClose={() => setSearchMode("search")}
         />
       )}
 
       {/* Search Results */}
       {isSearching && (
-        <SearchResults 
-          results={results} 
+        <SearchResults
+          results={results}
           query={query}
           onSessionClick={(sessionId) => {
             const session = index.sessions.find(s => s.sessionId === sessionId);
@@ -274,7 +273,7 @@ function IndexPage() {
 
       {/* Projects (hidden when searching) */}
       {!loading && !isSearching && sortedProjects.length > 0 && (
-        <Flex direction="column">
+        <Flex direction="column" style={{ maxWidth: "100%" }}>
           {sortedProjects.map((project) => (
             <ProjectSection
               key={project.projectId}

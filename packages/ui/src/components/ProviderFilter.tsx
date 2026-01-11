@@ -34,9 +34,8 @@ export function ProviderFilter({ value, onChange }: ProviderFilterProps) {
         px="2"
         py="1"
         style={{
-          background: "var(--bg-surface)",
-          border: "1px solid var(--border-subtle)",
-          borderRadius: "3px",
+          background: "transparent",
+          borderRight: "1px solid var(--border-subtle)",
           cursor: "pointer",
           minWidth: "90px",
         }}

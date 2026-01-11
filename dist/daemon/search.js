@@ -178,3 +178,11 @@ export function clearSearchIndex() {
     db.exec("DELETE FROM sessions_fts");
     db.exec("DELETE FROM sessions_index");
 }
+/**
+ * Get all unique cwds from indexed sessions
+ */
+export function getAllSessionCwds() {
+    const stmt = db.prepare("SELECT DISTINCT cwd FROM sessions_index WHERE cwd IS NOT NULL AND cwd != ''");
+    const rows = stmt.all();
+    return rows.map(r => r.cwd);
+}

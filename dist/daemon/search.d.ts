@@ -48,7 +48,7 @@ export declare function indexSession(session: {
 /**
  * Search sessions using FTS5
  */
-export declare function searchSessions(query: string, limit?: number): SearchResult[];
+export declare function searchSessions(query: string, limit?: number, provider?: string): SearchResult[];
 /**
  * Get search index stats
  */
@@ -87,3 +87,7 @@ export declare function clearSearchIndex(): void;
  * Get all unique cwds from indexed sessions
  */
 export declare function getAllSessionCwds(): string[];
+/**
+ * Delete all sessions for a project from the search index
+ */
+export declare function deleteProjectSessions(projectId: string): number;

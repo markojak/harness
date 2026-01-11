@@ -169,7 +169,7 @@ export function indexSession(session: {
 /**
  * Search sessions using FTS5
  */
-export function searchSessions(query: string, limit: number = 50): SearchResult[] {
+export function searchSessions(query: string, limit: number = 50, provider?: string): SearchResult[] {
   if (!query.trim()) return [];
   
   // Escape special FTS5 characters and add prefix matching
@@ -182,7 +182,9 @@ export function searchSessions(query: string, limit: number = 50): SearchResult[
   
   if (!sanitized) return [];
   
-  const stmt = db.prepare(`
+  // Build query with optional provider filter
+  const hasProviderFilter = provider && provider !== "all";
+  const sql = `
     SELECT 
       s.sessionId,
       s.projectId,
@@ -204,12 +206,18 @@ export function searchSessions(query: string, limit: number = 50): SearchResult[
     FROM sessions_fts
     JOIN sessions_index s ON sessions_fts.sessionId = s.sessionId
     WHERE sessions_fts MATCH ?
+    ${hasProviderFilter ? "AND s.provider = ?" : ""}
     ORDER BY rank
     LIMIT ?
-  `);
+  `;
+  
+  const stmt = db.prepare(sql);
   
   try {
-    const rows = stmt.all(sanitized, limit) as any[];
+    const params = hasProviderFilter 
+      ? [sanitized, provider, limit]
+      : [sanitized, limit];
+    const rows = stmt.all(...params) as any[];
     return rows.map(row => ({
       ...row,
       rank: -row.rank, // FTS5 rank is negative, invert for display
@@ -288,4 +296,23 @@ export function getAllSessionCwds(): string[] {
   const stmt = db.prepare("SELECT DISTINCT cwd FROM sessions_index WHERE cwd IS NOT NULL AND cwd != ''");
   const rows = stmt.all() as { cwd: string }[];
   return rows.map(r => r.cwd);
+}
+
+/**
+ * Delete all sessions for a project from the search index
+ */
+export function deleteProjectSessions(projectId: string): number {
+  // Delete from FTS
+  const ftsDelete = db.prepare(`
+    DELETE FROM sessions_fts WHERE sessionId IN (
+      SELECT sessionId FROM sessions_index WHERE projectId = ?
+    )
+  `);
+  ftsDelete.run(projectId);
+  
+  // Delete from index
+  const indexDelete = db.prepare("DELETE FROM sessions_index WHERE projectId = ?");
+  const result = indexDelete.run(projectId);
+  
+  return result.changes;
 }

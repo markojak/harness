@@ -20,6 +20,7 @@ interface ProjectSectionProps {
   sessions: IndexedSession[];
   liveSessions: Session[]; // Real-time sessions from watcher
   onSessionClick?: (session: IndexedSession) => void;
+  onHide?: (projectId: string) => void;
 }
 
 const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
@@ -204,7 +205,7 @@ function SessionWithAgents({
   );
 }
 
-export function ProjectSection({ project, sessions, liveSessions, onSessionClick }: ProjectSectionProps) {
+export function ProjectSection({ project, sessions, liveSessions, onSessionClick, onHide }: ProjectSectionProps) {
   // Check if there are live sessions
   const hasActiveSessions = liveSessions.length > 0;
   const isActive = project.isActive || hasActiveSessions;
@@ -265,6 +266,23 @@ export function ProjectSection({ project, sessions, liveSessions, onSessionClick
               {liveSessions.length} active
             </Text>
           </Flex>
+          {onHide && (
+            <Text
+              size="1"
+              style={{
+                color: "var(--text-tertiary)",
+                cursor: "pointer",
+                marginLeft: "auto",
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onHide(project.projectId);
+              }}
+              title="Hide this project"
+            >
+              hide
+            </Text>
+          )}
         </Flex>
 
         {/* Kanban */}
@@ -366,6 +384,23 @@ export function ProjectSection({ project, sessions, liveSessions, onSessionClick
         <Text size="1" style={{ color: "var(--text-tertiary)" }}>
           · {formatTimeAgo(project.lastActivityAt)}
         </Text>
+        {onHide && (
+          <Text
+            size="1"
+            style={{
+              color: "var(--text-tertiary)",
+              cursor: "pointer",
+              marginLeft: "auto",
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onHide(project.projectId);
+            }}
+            title="Hide this project"
+          >
+            hide
+          </Text>
+        )}
       </Flex>
 
       {/* Session cards */}

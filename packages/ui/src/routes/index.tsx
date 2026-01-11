@@ -8,7 +8,7 @@ import { SessionPanel } from "../components/SessionPanel";
 import { InitStatus } from "../components/InitStatus";
 import { StatusIndicator } from "../components/StatusIndicator";
 import { CommitSearch } from "../components/CommitSearch";
-import { ProviderFilter, type ProviderFilterValue } from "../components/ProviderFilter";
+import { ProviderFilter } from "../components/ProviderFilter";
 import { useSessions } from "../hooks/useSessions";
 import { useIndex, getProjectSessions } from "../hooks/useIndex";
 import { useSearch } from "../hooks/useSearch";
@@ -25,12 +25,11 @@ export const Route = createFileRoute("/")({
 function IndexPage() {
   const { sessions: liveSessions } = useSessions();
   const { index, loading: indexLoading } = useIndex();
-  const { query, setQuery, results, loading: searchLoading, isSearching, clearSearch } = useSearch();
-  const { config } = useConfig();
+  const { query, setQuery, provider: providerFilter, setProvider: setProviderFilter, results, loading: searchLoading, isSearching, clearSearch } = useSearch();
+  const { config, hideProject, isHidden } = useConfig();
 
   const [selectedSession, setSelectedSession] = useState<IndexedSession | null>(null);
   const [searchMode, setSearchMode] = useState<SearchMode>("search");
-  const [providerFilter, setProviderFilter] = useState<ProviderFilterValue>("all");
 
   // Force re-render every minute to update relative times
   const [, setTick] = useState(0);
@@ -68,7 +67,10 @@ function IndexPage() {
   }
 
   // Sort projects: active first (by live session count), then by last activity
-  const sortedProjects = [...index.projects].sort((a, b) => {
+  // Also filter out hidden projects
+  const sortedProjects = [...index.projects]
+    .filter(p => !isHidden(p.projectId))
+    .sort((a, b) => {
     const aLive = liveSessionsByProject.get(a.projectId)?.length || 0;
     const bLive = liveSessionsByProject.get(b.projectId)?.length || 0;
 
@@ -281,6 +283,11 @@ function IndexPage() {
               sessions={getProjectSessions(index.sessions, project.projectId)}
               liveSessions={liveSessionsByProject.get(project.projectId) || []}
               onSessionClick={handleSessionClick}
+              onHide={async (projectId) => {
+                await hideProject(projectId);
+                // Refresh the index to remove the project
+                window.location.reload(); // Simple approach, could be more elegant
+              }}
             />
           ))}
         </Flex>

@@ -70,6 +70,7 @@ interface HarnessConfig {
   port: number;
   host: string;
   resumeFlags: string;
+  hiddenProjects: string[]; // Array of projectIds to hide
 }
 
 const HOME = process.env.HOME || "";
@@ -92,6 +93,7 @@ const DEFAULT_CONFIG: HarnessConfig = {
   port: 4450,
   host: "127.0.0.1",
   resumeFlags: "",
+  hiddenProjects: [],
 };
 
 export function getConfig(): HarnessConfig {
@@ -435,8 +437,9 @@ export function startStatsServer(port: number = 4451): void {
       const url = new URL(req.url, `http://${req.headers.host}`);
       const query = url.searchParams.get("q") || "";
       const limit = parseInt(url.searchParams.get("limit") || "50", 10);
+      const provider = url.searchParams.get("provider") || undefined;
       
-      const results = search.searchSessions(query, limit);
+      const results = search.searchSessions(query, limit, provider);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify(results));
       return;
@@ -503,6 +506,64 @@ export function startStatsServer(port: number = 4451): void {
           saveConfig(data);
           res.writeHead(200, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ success: true }));
+        } catch (error) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: String(error) }));
+        }
+      });
+      return;
+    }
+
+    // Hide/Unhide project API
+    if (req.url === "/projects/hide" && req.method === "POST") {
+      let body = "";
+      req.on("data", chunk => body += chunk);
+      req.on("end", async () => {
+        try {
+          const { projectId } = JSON.parse(body);
+          if (!projectId) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "projectId is required" }));
+            return;
+          }
+          
+          const config = getConfig();
+          if (!config.hiddenProjects.includes(projectId)) {
+            config.hiddenProjects.push(projectId);
+            saveConfig(config);
+          }
+          
+          // Also remove from search index
+          search.deleteProjectSessions(projectId);
+          
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, hidden: config.hiddenProjects }));
+        } catch (error) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: String(error) }));
+        }
+      });
+      return;
+    }
+
+    if (req.url === "/projects/unhide" && req.method === "POST") {
+      let body = "";
+      req.on("data", chunk => body += chunk);
+      req.on("end", () => {
+        try {
+          const { projectId } = JSON.parse(body);
+          if (!projectId) {
+            res.writeHead(400, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ error: "projectId is required" }));
+            return;
+          }
+          
+          const config = getConfig();
+          config.hiddenProjects = config.hiddenProjects.filter(p => p !== projectId);
+          saveConfig(config);
+          
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ success: true, hidden: config.hiddenProjects }));
         } catch (error) {
           res.writeHead(400, { "Content-Type": "application/json" });
           res.end(JSON.stringify({ error: String(error) }));

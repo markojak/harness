@@ -90,7 +90,7 @@ function SearchResultRow({ result, onClick }: { result: SearchResult; onClick?: 
 
   return (
     <Box
-      py="2"
+      py="3"
       px="3"
       onClick={onClick}
       style={{
@@ -100,80 +100,76 @@ function SearchResultRow({ result, onClick }: { result: SearchResult; onClick?: 
       }}
       className="search-result-row"
     >
-      <Flex align="center" gap="3">
-        {/* Provider */}
-        <ProviderBadge 
-          provider={result.provider || "claude"} 
-          modelId={result.modelId}
-          modelProvider={result.modelProvider}
-        />
-
-        {/* Project */}
-        <Text
-          size="1"
-          style={{
-            color: "var(--accent-cyan)",
-            minWidth: "100px",
-            maxWidth: "100px",
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {result.gitRepoId || result.projectName}
-        </Text>
-
-        {/* Time */}
-        <Text
-          size="1"
-          style={{
-            color: "var(--text-tertiary)",
-            minWidth: "32px",
-          }}
-        >
-          {formatTimeAgo(result.lastActivityAt)}
-        </Text>
-
-        {/* Snippet with highlights */}
-        <Text
-          size="1"
-          style={{
-            color: "var(--text-secondary)",
-            flex: 1,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-          }}
-        >
-          {highlightSnippet(result.snippet || result.goal || result.originalPrompt)}
-        </Text>
-
-        {/* Branch */}
-        {result.gitBranch && (
+      <Flex direction="column" gap="2">
+        {/* Top row: Provider, Project, Time */}
+        <Flex align="center" gap="3">
+          <ProviderBadge 
+            provider={result.provider || "claude"} 
+            modelId={result.modelId}
+            modelProvider={result.modelProvider}
+          />
           <Text
             size="1"
             style={{
-              color: "var(--accent-purple)",
-              maxWidth: "100px",
+              color: "var(--accent-cyan)",
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
             }}
           >
-            {result.gitBranch}
+            {result.gitRepoId || result.projectName}
           </Text>
-        )}
+          {result.gitBranch && (
+            <>
+              <Text size="1" style={{ color: "var(--text-tertiary)" }}>·</Text>
+              <Text
+                size="1"
+                style={{
+                  color: "var(--accent-purple)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {result.gitBranch}
+              </Text>
+            </>
+          )}
+          <Text
+            size="1"
+            style={{
+              color: "var(--text-tertiary)",
+              marginLeft: "auto",
+              flexShrink: 0,
+            }}
+          >
+            {formatTimeAgo(result.lastActivityAt)}
+          </Text>
+          <Text
+            size="1"
+            style={{
+              color: bookmarked ? "var(--accent-orange)" : "var(--text-tertiary)",
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+            onClick={handleBookmarkClick}
+          >
+            {bookmarked ? "★" : "☆"}
+          </Text>
+        </Flex>
 
-        {/* Bookmark */}
+        {/* Bottom row: Snippet */}
         <Text
-          size="1"
+          size="2"
           style={{
-            color: bookmarked ? "var(--accent-orange)" : "var(--text-tertiary)",
-            cursor: "pointer",
+            color: "var(--text-primary)",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            lineHeight: "1.4",
           }}
-          onClick={handleBookmarkClick}
         >
-          {bookmarked ? "★" : "☆"}
+          {highlightSnippet(result.snippet || result.goal || result.originalPrompt)}
         </Text>
       </Flex>
     </Box>

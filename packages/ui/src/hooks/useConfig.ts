@@ -6,12 +6,14 @@ import { useState, useEffect, useCallback } from "react";
 
 interface HarnessConfig {
   resumeFlags: string;
+  hiddenProjects: string[];
 }
 
 const API_BASE = "";
 
 const DEFAULT_CONFIG: HarnessConfig = {
   resumeFlags: "",
+  hiddenProjects: [],
 };
 
 export function useConfig() {
@@ -53,5 +55,45 @@ export function useConfig() {
     return false;
   }, []);
 
-  return { config, loading, updateConfig, refresh };
+  const hideProject = useCallback(async (projectId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/projects/hide`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConfig(prev => ({ ...prev, hiddenProjects: data.hidden }));
+        return true;
+      }
+    } catch {
+      // Failed
+    }
+    return false;
+  }, []);
+
+  const unhideProject = useCallback(async (projectId: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/projects/unhide`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setConfig(prev => ({ ...prev, hiddenProjects: data.hidden }));
+        return true;
+      }
+    } catch {
+      // Failed
+    }
+    return false;
+  }, []);
+
+  const isHidden = useCallback((projectId: string) => {
+    return config.hiddenProjects.includes(projectId);
+  }, [config.hiddenProjects]);
+
+  return { config, loading, updateConfig, refresh, hideProject, unhideProject, isHidden };
 }

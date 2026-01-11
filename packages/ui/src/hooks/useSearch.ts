@@ -1,5 +1,5 @@
 /**
- * Search hook with debouncing
+ * Search hook with debouncing and provider filtering
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -8,24 +8,29 @@ import type { SearchResult } from "../components/SearchResults";
 const API_BASE = "";
 const DEBOUNCE_MS = 200;
 
+export type ProviderFilter = "all" | "claude" | "codex" | "opencode";
+
 export function useSearch() {
   const [query, setQuery] = useState("");
+  const [provider, setProvider] = useState<ProviderFilter>("all");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [debouncedProvider, setDebouncedProvider] = useState<ProviderFilter>("all");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Debounce the query
+  // Debounce the query and provider together
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedQuery(query);
+      setDebouncedProvider(provider);
     }, DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [query]);
+  }, [query, provider]);
 
-  // Search when debounced query changes
+  // Search when debounced values change
   useEffect(() => {
     if (!debouncedQuery.trim()) {
       setResults([]);
@@ -44,7 +49,15 @@ export function useSearch() {
     setLoading(true);
     setError(null);
 
-    fetch(`${API_BASE}/search?q=${encodeURIComponent(debouncedQuery)}&limit=50`, {
+    const params = new URLSearchParams({
+      q: debouncedQuery,
+      limit: "50",
+    });
+    if (debouncedProvider !== "all") {
+      params.set("provider", debouncedProvider);
+    }
+
+    fetch(`${API_BASE}/search?${params}`, {
       signal: controller.signal,
     })
       .then((res) => {
@@ -65,7 +78,7 @@ export function useSearch() {
     return () => {
       controller.abort();
     };
-  }, [debouncedQuery]);
+  }, [debouncedQuery, debouncedProvider]);
 
   const clearSearch = useCallback(() => {
     setQuery("");
@@ -78,6 +91,8 @@ export function useSearch() {
   return {
     query,
     setQuery,
+    provider,
+    setProvider,
     results,
     loading,
     error,

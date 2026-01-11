@@ -429,9 +429,10 @@ async function indexCodexSessions(
           } catch {}
         }
 
-        // Derive project info from cwd
-        const projectName = cwd ? cwd.split("/").pop() || "unknown" : "codex";
-        const projectId = cwd || `codex-${sessionId.slice(0, 8)}`;
+        // Derive project info from cwd - find git root to merge with parent repos
+        const gitRoot = cwd ? await findGitRoot(cwd) : null;
+        const projectId = gitRoot || cwd || `codex-${sessionId.slice(0, 8)}`;
+        const projectName = projectId.split("/").pop() || "codex";
 
         // Check if active (last 5 min)
         const lastActivity = new Date(lastTimestamp).getTime();
@@ -516,9 +517,11 @@ async function indexOpenCodeSessions(
       if (!projectStat?.isDirectory()) continue;
 
       const project = projects.get(projectHash);
-      const projectName = project?.worktree?.split("/").pop() || projectHash.slice(0, 8);
       const cwd = project?.worktree || "";
-      const projectId = cwd || `opencode-${projectHash.slice(0, 8)}`;
+      // Find git root to merge with parent repos
+      const gitRoot = cwd ? await findGitRoot(cwd) : null;
+      const projectId = gitRoot || cwd || `opencode-${projectHash.slice(0, 8)}`;
+      const projectName = projectId.split("/").pop() || projectHash.slice(0, 8);
 
       const sessionFiles = await readdir(projectPath).catch(() => []);
 

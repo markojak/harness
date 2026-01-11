@@ -12,6 +12,7 @@ interface HarnessConfig {
     port: number;
     host: string;
     resumeFlags: string;
+    hiddenProjects: string[];
 }
 export declare function getConfig(): HarnessConfig;
 export declare function saveConfig(config: Partial<HarnessConfig>): void;

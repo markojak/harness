@@ -12,7 +12,8 @@
     "fonts"
   ],
   "scripts": {
-    "start": "concurrently \"pnpm --filter @claude-code-ui/daemon start\" \"pnpm --filter @claude-code-ui/ui dev\"",
+    "dev": "node bin/cli.js",
+    "start": "node bin/cli.js",
     "build": "pnpm --filter @claude-code-ui/daemon build && pnpm --filter @claude-code-ui/ui build && pnpm run build:bundle",
     "build:bundle": "node scripts/bundle.js",
     "prepublishOnly": "pnpm run build"

@@ -6,6 +6,7 @@
     "./schema": "./src/schema.ts"
   },
   "scripts": {
+    "start": "tsx src/serve.ts",
     "serve": "tsx src/serve.ts",
     "watch": "tsx src/cli.ts",
     "watch:recent": "tsx src/cli.ts --recent",

@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from "react";
 import { Flex, Text, Box, ScrollArea } from "@radix-ui/themes";
+import { ProviderIcon, type Provider } from "./ProviderIcon";
 
 interface SessionPanelProps {
   session: {
@@ -15,6 +16,9 @@ interface SessionPanelProps {
     lastActivityAt: string;
     cwd: string;
     provider?: "claude" | "codex" | "opencode";
+    messageCount?: number;
+    modelId?: string | null;
+    modelProvider?: string | null;
   } | null;
   onClose: () => void;
   resumeFlags: string;
@@ -73,6 +77,22 @@ function formatTimeAgo(isoString: string): string {
   const hours = Math.floor(minutes / 60);
   if (hours > 0) return `${hours}h ${minutes % 60}m`;
   return `${minutes}m`;
+}
+
+// ASCII-style tool usage bar visualization
+function ToolUsageBar({ toolCount, totalEvents }: { toolCount: number; totalEvents: number }) {
+  if (totalEvents === 0) return null;
+  const ratio = Math.min(toolCount / Math.max(totalEvents, 1), 1);
+  const filled = Math.round(ratio * 8);
+  const empty = 8 - filled;
+  const bar = "█".repeat(filled) + "░".repeat(empty);
+  const percent = Math.round(ratio * 100);
+  
+  return (
+    <Text size="1" style={{ color: "var(--accent-purple)", fontFamily: "monospace" }}>
+      Tools {bar} {percent}%
+    </Text>
+  );
 }
 
 function CopyButton({ text, label }: { text: string; label?: string }) {
@@ -430,6 +450,7 @@ export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProp
           display: "flex",
           flexDirection: "column",
           animation: "slideIn 0.2s ease-out",
+          overscrollBehavior: "contain",
         }}
       >
         {/* Header */}
@@ -463,14 +484,17 @@ export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProp
               WebkitLineClamp: 3,
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
+              maxWidth: "100%",
+              width: "100%",
             }}
             title={session.goal || session.originalPrompt || "Session"}
           >
             {session.goal || session.originalPrompt?.slice(0, 150) || "Session"}
           </Text>
           
-          {/* Project info */}
+          {/* Project info with provider icon */}
           <Flex align="center" gap="2" style={{ flexWrap: "wrap" }}>
+            <ProviderIcon provider={(session.provider || "claude") as Provider} size={14} />
             <Text size="1" style={{ color: "var(--accent-cyan)" }}>
               {session.projectName}
             </Text>
@@ -486,6 +510,37 @@ export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProp
             <Text size="1" style={{ color: "var(--text-tertiary)" }}>
               {formatTimeAgo(session.lastActivityAt)}
             </Text>
+          </Flex>
+          
+          {/* Session metadata */}
+          <Flex 
+            align="center" 
+            gap="3" 
+            px="2"
+            py="1"
+            style={{ 
+              flexWrap: "wrap",
+              background: "var(--bg-base)",
+              borderRadius: "3px",
+              border: "1px solid var(--border-subtle)",
+            }}
+          >
+            {session.messageCount && session.messageCount > 0 && (
+              <Text size="1" style={{ color: "var(--text-tertiary)", fontFamily: "monospace" }}>
+                {session.messageCount} msgs
+              </Text>
+            )}
+            {session.modelId && (
+              <Text size="1" style={{ color: "var(--accent-orange)", fontFamily: "monospace" }}>
+                {session.modelId}
+              </Text>
+            )}
+            {!loading && sessionData.events.length > 0 && (
+              <ToolUsageBar 
+                toolCount={sessionData.events.filter(e => e.type === "tool").length}
+                totalEvents={sessionData.events.length}
+              />
+            )}
           </Flex>
           
           {/* Resume command */}
@@ -538,7 +593,7 @@ export function SessionPanel({ session, onClose, resumeFlags }: SessionPanelProp
         </Flex>
 
         {/* Tab content - full height, each tab handles its own scrolling */}
-        <Box style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+        <Box style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", overscrollBehavior: "contain" }}>
           {activeTab === "transcript" && (
             <TranscriptTab
               events={sessionData.events}

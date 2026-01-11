@@ -23,6 +23,9 @@ function getOpenCodeStorageDir(): string {
 
 export type Provider = "claude" | "codex" | "opencode";
 
+// Minimum content length to include a session (chars) - filter out empty/minimal sessions
+const MIN_CONTENT_LENGTH = 100;
+
 export interface IndexedSession {
   sessionId: string;
   provider: Provider;
@@ -66,6 +69,7 @@ interface SessionMetadata {
   startedAt: string;
   lastActivityAt: string;
   messageCount: number;
+  totalContentLength: number; // Total chars of text content
 }
 
 /**
@@ -116,6 +120,7 @@ async function parseSessionMetadata(filepath: string): Promise<SessionMetadata |
     let startedAt = "";
     let lastActivityAt = "";
     let messageCount = 0;
+    let totalContentLength = 0;
 
     for (const line of lines) {
       try {
@@ -148,9 +153,19 @@ async function parseSessionMetadata(filepath: string): Promise<SessionMetadata |
           goal = entry.summary;
         }
 
-        // Count messages
+        // Count messages and track content length
         if (entry.type === "user" || entry.type === "assistant") {
           messageCount++;
+          // Track content for filtering
+          if (entry.message?.content) {
+            if (typeof entry.message.content === "string") {
+              totalContentLength += entry.message.content.length;
+            } else if (Array.isArray(entry.message.content)) {
+              for (const block of entry.message.content) {
+                if (block.text) totalContentLength += block.text.length;
+              }
+            }
+          }
         }
       } catch {
         // Skip malformed lines
@@ -171,6 +186,7 @@ async function parseSessionMetadata(filepath: string): Promise<SessionMetadata |
       startedAt,
       lastActivityAt,
       messageCount,
+      totalContentLength,
     };
   } catch (error) {
     console.error(`Failed to parse ${filepath}:`, error);
@@ -244,6 +260,11 @@ export async function indexAllSessions(): Promise<{
           if (match) {
             parentSessionId = match[1];
           }
+        }
+
+        // Skip sessions with minimal content (unless active)
+        if (!isActive && metadata.totalContentLength < MIN_CONTENT_LENGTH) {
+          continue;
         }
 
         const session: IndexedSession = {
@@ -396,6 +417,7 @@ async function indexCodexSessions(
         let originalPrompt = "";
         let lastTimestamp = fileStat.mtime.toISOString();
         let startedAt = fileStat.birthtime.toISOString();
+        let totalContentLength = 0;
 
         for (const line of lines) {
           try {
@@ -414,12 +436,19 @@ async function indexCodexSessions(
               }
             }
 
-            // First user message as prompt
-            if (parsed.type === "response_item" && parsed.payload?.role === "user" && !originalPrompt) {
+            // Response items (messages) - track content length
+            if (parsed.type === "response_item" && parsed.payload) {
               const textContent = parsed.payload.content?.find((c: any) => 
-                c.type === "input_text" || c.type === "text"
+                c.type === "input_text" || c.type === "text" || c.type === "output_text"
               );
-              originalPrompt = textContent?.text || "";
+              if (textContent?.text) {
+                totalContentLength += textContent.text.length;
+              }
+              
+              // First user message as prompt
+              if (parsed.payload.role === "user" && !originalPrompt) {
+                originalPrompt = textContent?.text || "";
+              }
             }
 
             // Track last timestamp
@@ -437,6 +466,11 @@ async function indexCodexSessions(
         // Check if active (last 5 min)
         const lastActivity = new Date(lastTimestamp).getTime();
         const isActive = Date.now() - lastActivity < 5 * 60 * 1000;
+
+        // Skip sessions with minimal content (unless active)
+        if (!isActive && totalContentLength < MIN_CONTENT_LENGTH) {
+          continue;
+        }
 
         // Extract git repo URL from cwd if possible
         let gitRepoId: string | null = null;
@@ -539,6 +573,7 @@ async function indexOpenCodeSessions(
           let lastActivityAt = fileStat.mtime.toISOString();
           let modelProvider: string | null = null;
           let modelId: string | null = null;
+          let totalContentLength = 0;
 
           try {
             const messages = await readdir(messageDir);
@@ -551,15 +586,27 @@ async function indexOpenCodeSessions(
               const lastMsgStat = await stat(lastMsgPath);
               lastActivityAt = lastMsgStat.mtime.toISOString();
 
-              // Extract model info from recent messages
-              for (let i = jsonMessages.length - 1; i >= Math.max(0, jsonMessages.length - 5); i--) {
+              // Extract model info and content length from messages
+              for (let i = jsonMessages.length - 1; i >= 0; i--) {
                 try {
                   const msgContent = await readFile(join(messageDir, jsonMessages[i]), "utf-8");
                   const msg = JSON.parse(msgContent);
-                  if (msg.model?.providerID && msg.model?.modelID) {
+                  
+                  // Track content length
+                  if (msg.content) {
+                    if (typeof msg.content === "string") {
+                      totalContentLength += msg.content.length;
+                    } else if (Array.isArray(msg.content)) {
+                      for (const part of msg.content) {
+                        if (part.text) totalContentLength += part.text.length;
+                      }
+                    }
+                  }
+                  
+                  // Extract model info (only need from recent messages)
+                  if (!modelProvider && msg.model?.providerID && msg.model?.modelID) {
                     modelProvider = msg.model.providerID;
                     modelId = msg.model.modelID;
-                    break;
                   }
                 } catch {}
               }
@@ -568,6 +615,11 @@ async function indexOpenCodeSessions(
 
           const lastActivity = new Date(lastActivityAt).getTime();
           const isActive = Date.now() - lastActivity < 5 * 60 * 1000;
+
+          // Skip sessions with minimal content (unless active)
+          if (!isActive && totalContentLength < MIN_CONTENT_LENGTH) {
+            continue;
+          }
 
           const session: IndexedSession = {
             sessionId: sessionData.id,

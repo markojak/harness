@@ -15,6 +15,8 @@ function getCodexSessionsDir() {
 function getOpenCodeStorageDir() {
     return getProviderPath("opencode");
 }
+// Minimum content length to include a session (chars) - filter out empty/minimal sessions
+const MIN_CONTENT_LENGTH = 100;
 /**
  * Decode the encoded directory name back to a path
  */
@@ -59,6 +61,7 @@ async function parseSessionMetadata(filepath) {
         let startedAt = "";
         let lastActivityAt = "";
         let messageCount = 0;
+        let totalContentLength = 0;
         for (const line of lines) {
             try {
                 const entry = JSON.parse(line);
@@ -86,9 +89,21 @@ async function parseSessionMetadata(filepath) {
                 if (!goal && entry.type === "summary" && entry.summary) {
                     goal = entry.summary;
                 }
-                // Count messages
+                // Count messages and track content length
                 if (entry.type === "user" || entry.type === "assistant") {
                     messageCount++;
+                    // Track content for filtering
+                    if (entry.message?.content) {
+                        if (typeof entry.message.content === "string") {
+                            totalContentLength += entry.message.content.length;
+                        }
+                        else if (Array.isArray(entry.message.content)) {
+                            for (const block of entry.message.content) {
+                                if (block.text)
+                                    totalContentLength += block.text.length;
+                            }
+                        }
+                    }
                 }
             }
             catch {
@@ -108,6 +123,7 @@ async function parseSessionMetadata(filepath) {
             startedAt,
             lastActivityAt,
             messageCount,
+            totalContentLength,
         };
     }
     catch (error) {
@@ -165,6 +181,10 @@ export async function indexAllSessions() {
                     if (match) {
                         parentSessionId = match[1];
                     }
+                }
+                // Skip sessions with minimal content (unless active)
+                if (!isActive && metadata.totalContentLength < MIN_CONTENT_LENGTH) {
+                    continue;
                 }
                 const session = {
                     sessionId: metadata.sessionId,
@@ -290,6 +310,7 @@ async function indexCodexSessions(sessions, projectMap) {
                 let originalPrompt = "";
                 let lastTimestamp = fileStat.mtime.toISOString();
                 let startedAt = fileStat.birthtime.toISOString();
+                let totalContentLength = 0;
                 for (const line of lines) {
                     try {
                         const parsed = JSON.parse(line);
@@ -305,10 +326,16 @@ async function indexCodexSessions(sessions, projectMap) {
                                 startedAt = meta.timestamp;
                             }
                         }
-                        // First user message as prompt
-                        if (parsed.type === "response_item" && parsed.payload?.role === "user" && !originalPrompt) {
-                            const textContent = parsed.payload.content?.find((c) => c.type === "input_text" || c.type === "text");
-                            originalPrompt = textContent?.text || "";
+                        // Response items (messages) - track content length
+                        if (parsed.type === "response_item" && parsed.payload) {
+                            const textContent = parsed.payload.content?.find((c) => c.type === "input_text" || c.type === "text" || c.type === "output_text");
+                            if (textContent?.text) {
+                                totalContentLength += textContent.text.length;
+                            }
+                            // First user message as prompt
+                            if (parsed.payload.role === "user" && !originalPrompt) {
+                                originalPrompt = textContent?.text || "";
+                            }
                         }
                         // Track last timestamp
                         if (parsed.timestamp) {
@@ -324,6 +351,10 @@ async function indexCodexSessions(sessions, projectMap) {
                 // Check if active (last 5 min)
                 const lastActivity = new Date(lastTimestamp).getTime();
                 const isActive = Date.now() - lastActivity < 5 * 60 * 1000;
+                // Skip sessions with minimal content (unless active)
+                if (!isActive && totalContentLength < MIN_CONTENT_LENGTH) {
+                    continue;
+                }
                 // Extract git repo URL from cwd if possible
                 let gitRepoId = null;
                 let gitRepoUrl = null;
@@ -415,6 +446,7 @@ async function indexOpenCodeSessions(sessions, projectMap) {
                     let lastActivityAt = fileStat.mtime.toISOString();
                     let modelProvider = null;
                     let modelId = null;
+                    let totalContentLength = 0;
                     try {
                         const messages = await readdir(messageDir);
                         const jsonMessages = messages.filter(f => f.endsWith(".json")).sort();
@@ -424,15 +456,27 @@ async function indexOpenCodeSessions(sessions, projectMap) {
                             const lastMsgPath = join(messageDir, lastMsg);
                             const lastMsgStat = await stat(lastMsgPath);
                             lastActivityAt = lastMsgStat.mtime.toISOString();
-                            // Extract model info from recent messages
-                            for (let i = jsonMessages.length - 1; i >= Math.max(0, jsonMessages.length - 5); i--) {
+                            // Extract model info and content length from messages
+                            for (let i = jsonMessages.length - 1; i >= 0; i--) {
                                 try {
                                     const msgContent = await readFile(join(messageDir, jsonMessages[i]), "utf-8");
                                     const msg = JSON.parse(msgContent);
-                                    if (msg.model?.providerID && msg.model?.modelID) {
+                                    // Track content length
+                                    if (msg.content) {
+                                        if (typeof msg.content === "string") {
+                                            totalContentLength += msg.content.length;
+                                        }
+                                        else if (Array.isArray(msg.content)) {
+                                            for (const part of msg.content) {
+                                                if (part.text)
+                                                    totalContentLength += part.text.length;
+                                            }
+                                        }
+                                    }
+                                    // Extract model info (only need from recent messages)
+                                    if (!modelProvider && msg.model?.providerID && msg.model?.modelID) {
                                         modelProvider = msg.model.providerID;
                                         modelId = msg.model.modelID;
-                                        break;
                                     }
                                 }
                                 catch { }
@@ -442,6 +486,10 @@ async function indexOpenCodeSessions(sessions, projectMap) {
                     catch { }
                     const lastActivity = new Date(lastActivityAt).getTime();
                     const isActive = Date.now() - lastActivity < 5 * 60 * 1000;
+                    // Skip sessions with minimal content (unless active)
+                    if (!isActive && totalContentLength < MIN_CONTENT_LENGTH) {
+                        continue;
+                    }
                     const session = {
                         sessionId: sessionData.id,
                         provider: "opencode",

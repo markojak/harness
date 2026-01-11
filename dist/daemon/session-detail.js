@@ -19,6 +19,60 @@ export async function extractSessionDetail(filepath) {
                         timestamp: entry.timestamp || "",
                     });
                 }
+                // === CODEX FORMAT ===
+                // Handle Codex response_item format: {type: "response_item", payload: {role, content}}
+                if (entry.type === "response_item" && entry.payload) {
+                    const payload = entry.payload;
+                    const timestamp = entry.timestamp || "";
+                    if (payload.role === "user") {
+                        // Extract text from content array
+                        const textContent = payload.content?.find((c) => c.type === "input_text" || c.type === "text");
+                        if (textContent?.text) {
+                            events.push({
+                                type: "user",
+                                timestamp,
+                                content: textContent.text.slice(0, 500),
+                            });
+                        }
+                    }
+                    else if (payload.role === "assistant") {
+                        // Extract assistant text and tool calls
+                        if (Array.isArray(payload.content)) {
+                            for (const block of payload.content) {
+                                if ((block.type === "text" || block.type === "output_text") && block.text) {
+                                    events.push({
+                                        type: "assistant",
+                                        timestamp,
+                                        content: block.text.slice(0, 200),
+                                    });
+                                    break; // Just first text block
+                                }
+                            }
+                        }
+                    }
+                }
+                // Handle Codex function_call/tool_use events
+                if (entry.type === "function_call" || (entry.type === "tool_use" && entry.name)) {
+                    const toolName = entry.name || "function";
+                    let target = "";
+                    const args = entry.arguments || entry.input || {};
+                    if (args.file_path)
+                        target = args.file_path;
+                    else if (args.path)
+                        target = args.path;
+                    else if (args.command)
+                        target = String(args.command).slice(0, 50);
+                    else if (args.query)
+                        target = String(args.query).slice(0, 50);
+                    events.push({
+                        type: "tool",
+                        timestamp: entry.timestamp || "",
+                        content: "",
+                        toolName,
+                        target,
+                    });
+                }
+                // === CLAUDE FORMAT ===
                 // Extract user messages
                 if (entry.type === "user" && entry.message?.content) {
                     const content = typeof entry.message.content === "string"

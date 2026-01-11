@@ -337,6 +337,20 @@ body {
 }
 
 /* =====================
+   Scroll Containment
+   ===================== */
+.session-panel,
+.session-panel [data-radix-scroll-area-viewport] {
+  overscroll-behavior: contain;
+}
+
+/* Ensure title truncation in session panel */
+.session-panel-title {
+  max-width: 100%;
+  word-break: break-word;
+}
+
+/* =====================
    Mobile Responsive
    ===================== */
 @media (max-width: 768px) {
@@ -415,6 +429,11 @@ body {
   .stats-cost {
     display: none !important;
   }
+}
+
+/* Session panel scroll containment - prevent background scroll */
+.session-panel [data-radix-scroll-area-viewport] {
+  overscroll-behavior: contain;
 }
 
 /* Session panel responsive */

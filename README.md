@@ -6,11 +6,12 @@ Harness gives you real-time visibility into every AI coding session across Claud
 
 ## Supported Providers
 
-| Provider | Tool | Session Location |
-|----------|------|------------------|
-| **Claude** | [Claude Code](https://claude.ai/code) | `~/.claude/projects/` |
-| **Codex** | [Codex CLI](https://github.com/openai/codex) | `~/.codex/sessions/` |
-| **OpenCode** | [OpenCode](https://github.com/opencode-ai/opencode) | `~/.local/share/opencode/storage/` |
+| Provider        | Tool                                                        | Session Location                   |
+| --------------- | ----------------------------------------------------------- | ---------------------------------- |
+| **Claude**      | [Claude Code](https://claude.ai/code)                       | `~/.claude/projects/`              |
+| **Codex**       | [Codex CLI](https://github.com/openai/codex)                | `~/.codex/sessions/`               |
+| **OpenCode**    | [OpenCode](https://github.com/opencode-ai/opencode)         | `~/.local/share/opencode/storage/` |
+| **Antigravity** | [Antigravity](https://deepmind.google/technologies/gemini/) | `~/.gemini/antigravity/`           |
 
 OpenCode sessions display the actual model used (Claude, GPT-4, Gemini, etc.) since OpenCode supports multiple providers.
 
@@ -111,6 +112,10 @@ Override paths if your tools store sessions elsewhere:
     "opencode": {
       "enabled": true,
       "path": "~/.local/share/opencode/storage"
+    },
+    "antigravity": {
+      "enabled": true,
+      "path": "~/.gemini/antigravity"
     }
   },
   "port": 4450,
@@ -120,16 +125,18 @@ Override paths if your tools store sessions elsewhere:
 
 ### Configuration Options
 
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `providers.claude.enabled` | boolean | true | Enable Claude Code sessions |
-| `providers.claude.path` | string | ~/.claude/projects | Claude session directory |
-| `providers.codex.enabled` | boolean | true | Enable Codex CLI sessions |
-| `providers.codex.path` | string | ~/.codex/sessions | Codex session directory |
-| `providers.opencode.enabled` | boolean | true | Enable OpenCode sessions |
-| `providers.opencode.path` | string | ~/.local/share/opencode/storage | OpenCode storage directory |
-| `port` | number | 4450 | Dashboard server port |
-| `resumeFlags` | string | "" | Custom flags for session resume |
+| Key                             | Type    | Default                         | Description                     |
+| ------------------------------- | ------- | ------------------------------- | ------------------------------- |
+| `providers.claude.enabled`      | boolean | true                            | Enable Claude Code sessions     |
+| `providers.claude.path`         | string  | ~/.claude/projects              | Claude session directory        |
+| `providers.codex.enabled`       | boolean | true                            | Enable Codex CLI sessions       |
+| `providers.codex.path`          | string  | ~/.codex/sessions               | Codex session directory         |
+| `providers.opencode.enabled`    | boolean | true                            | Enable OpenCode sessions        |
+| `providers.opencode.path`       | string  | ~/.local/share/opencode/storage | OpenCode storage directory      |
+| `providers.antigravity.enabled` | boolean | true                            | Enable Antigravity sessions     |
+| `providers.antigravity.path`    | string  | ~/.gemini/antigravity           | Antigravity session directory   |
+| `port`                          | number  | 4450                            | Dashboard server port           |
+| `resumeFlags`                   | string  | ""                              | Custom flags for session resume |
 
 ---
 
@@ -138,15 +145,15 @@ Override paths if your tools store sessions elsewhere:
 ### Required
 
 | Dependency | Version | Purpose |
-|------------|---------|---------|
-| Node.js | ≥20.0.0 | Runtime |
+| ---------- | ------- | ------- |
+| Node.js    | ≥20.0.0 | Runtime |
 
 ### Recommended
 
-| Dependency | Version | Install | Purpose |
-|------------|---------|---------|---------|
-| ripgrep | ≥14.0.0 | `brew install ripgrep` | 10x faster search |
-| git | ≥2.30.0 | `xcode-select --install` | Commit finder, branch info |
+| Dependency | Version | Install                  | Purpose                    |
+| ---------- | ------- | ------------------------ | -------------------------- |
+| ripgrep    | ≥14.0.0 | `brew install ripgrep`   | 10x faster search          |
+| git        | ≥2.30.0 | `xcode-select --install` | Commit finder, branch info |
 
 ### Check your setup
 
@@ -159,16 +166,16 @@ harness doctor
 
   ✓ Node.js: v22.0.0
   ✓ Data directory: ~/.harness
-  
+
   Providers:
   ✓ Claude: ~/.claude/projects (250 sessions)
   ✓ Codex: ~/.codex/sessions (372 sessions)
   ✓ OpenCode: ~/.local/share/opencode/storage (23 sessions)
-  
+
   Dependencies:
   ✓ ripgrep: ripgrep 14.1.0
   ✓ git: git version 2.43.0
-  
+
   ✓ Daemon running: yes
   ℹ 645 sessions across 3 providers
 ```
@@ -205,18 +212,18 @@ harness doctor
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `harness` | Start dashboard (default) |
-| `harness stats` | Show quick stats |
-| `harness sessions` | List recent sessions |
-| `harness search <query>` | Full-text search |
-| `harness export <id>` | Export session to markdown |
-| `harness doctor` | Check system health |
-| `harness config` | View/edit configuration |
-| `harness index` | Manage search index |
-| `harness version` | Show version |
-| `harness help` | Show help |
+| Command                  | Description                |
+| ------------------------ | -------------------------- |
+| `harness`                | Start dashboard (default)  |
+| `harness stats`          | Show quick stats           |
+| `harness sessions`       | List recent sessions       |
+| `harness search <query>` | Full-text search           |
+| `harness export <id>`    | Export session to markdown |
+| `harness doctor`         | Check system health        |
+| `harness config`         | View/edit configuration    |
+| `harness index`          | Manage search index        |
+| `harness version`        | Show version               |
+| `harness help`           | Show help                  |
 
 ### Start Options
 
@@ -287,14 +294,14 @@ harness export <id> --json     # JSON transcript
 
 ### Data Storage
 
-| Location | Contents |
-|----------|----------|
-| `~/.claude/projects/` | Claude Code sessions (JSONL) |
-| `~/.codex/sessions/` | Codex CLI sessions (JSONL) |
-| `~/.local/share/opencode/storage/` | OpenCode sessions (JSON) |
-| `~/.harness/` | Harness data directory |
-| `~/.harness/harness.db` | SQLite database (FTS index, bookmarks) |
-| `~/.harness/config.json` | User configuration |
+| Location                           | Contents                               |
+| ---------------------------------- | -------------------------------------- |
+| `~/.claude/projects/`              | Claude Code sessions (JSONL)           |
+| `~/.codex/sessions/`               | Codex CLI sessions (JSONL)             |
+| `~/.local/share/opencode/storage/` | OpenCode sessions (JSON)               |
+| `~/.harness/`                      | Harness data directory                 |
+| `~/.harness/harness.db`            | SQLite database (FTS index, bookmarks) |
+| `~/.harness/config.json`           | User configuration                     |
 
 ---
 

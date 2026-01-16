@@ -9,6 +9,7 @@ pnpm watch --recent
 ```
 
 You should see:
+
 - This current session showing as "Working" (since Claude is responding)
 - Any other Claude Code sessions you have open
 
@@ -19,6 +20,7 @@ You should see:
 The watcher should detect this session and show status changes as we interact:
 
 1. **Start the watcher** in one terminal:
+
    ```bash
    pnpm watch --recent
    ```
@@ -40,6 +42,7 @@ claude "say hello"
 ```
 
 The watcher should show:
+
 - `[NEW]` event when the session starts
 - Status updates as the session progresses
 - The session grouped under `/tmp/test-claude-session`
@@ -47,6 +50,32 @@ The watcher should show:
 ### 3. Test Multiple Concurrent Sessions
 
 Open 2-3 Claude Code sessions in different directories:
+(content continues)
+
+## Testing Antigravity Integration
+
+Since Antigravity uses a different architecture (protobufs, lack of explicit project links), testing requires verifying the heuristic matcher.
+
+### 1. Verify Project Grouping
+
+1. Ensure you have active Antigravity sessions.
+2. Check the dashboard.
+3. Verify that sessions are grouped under `antigravity/<project-name>` and not generic `Antigravity`.
+4. If a session appears as generic `Antigravity`, check the timestamp of the corresponding folder in `~/.gemini/antigravity/code_tracker/active`. It must be within 96 hours of the session activity.
+
+### 2. Mock Session for Testing
+
+To simulate an Antigravity session without consuming quota:
+
+```bash
+# Create dummy files simulating a session
+mkdir -p ~/.gemini/antigravity/conversations
+mkdir -p ~/.gemini/antigravity/annotations
+touch ~/.gemini/antigravity/conversations/mock_session.pb
+echo "last_user_view_time: { seconds: $(date +%s) }" > ~/.gemini/antigravity/annotations/mock_session.pbtxt
+```
+
+The dashboard should detect a new "Unknown" or "Working" session within seconds.
 
 ```bash
 # Terminal 1
@@ -60,6 +89,7 @@ pnpm watch --active
 ```
 
 Verify:
+
 - All sessions appear grouped by their working directory
 - Status updates appear in real-time as each session progresses
 - The `--active` filter hides idle sessions
@@ -84,6 +114,7 @@ claude "edit file.txt to say 'hello world'"
 ```
 
 When Claude requests approval for the edit:
+
 - Status should show "Needs approval" (orange indicator)
 - After approving, status should change
 
@@ -111,29 +142,32 @@ The watcher should detect this mock session.
 
 ## Expected Status Behavior
 
-| Scenario | Expected Status |
-|----------|-----------------|
-| User just sent a message | Working |
-| Claude finished responding | Waiting for input |
-| Claude requested a tool | Needs approval |
-| No activity for 5+ minutes | Idle |
-| File deleted | Session removed from list |
+| Scenario                   | Expected Status           |
+| -------------------------- | ------------------------- |
+| User just sent a message   | Working                   |
+| Claude finished responding | Waiting for input         |
+| Claude requested a tool    | Needs approval            |
+| No activity for 5+ minutes | Idle                      |
+| File deleted               | Session removed from list |
 
 ## Debugging Tips
 
 If the watcher isn't showing expected sessions:
 
 1. Check the Claude projects directory exists:
+
    ```bash
    ls ~/.claude/projects/
    ```
 
 2. Verify there are `.jsonl` files:
+
    ```bash
    find ~/.claude/projects -name "*.jsonl" | head -5
    ```
 
 3. Check a session file is valid JSONL:
+
    ```bash
    head -3 ~/.claude/projects/*/$(ls ~/.claude/projects/*/ | head -1)
    ```

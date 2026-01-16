@@ -605,9 +605,9 @@ async function indexAntigravitySessions(sessions, projectMap) {
                 // Default to a single "Misc" project for sessions without a clear project match
                 // This prevents creating a separate project for every single session
                 let projectId = "antigravity-misc";
-                // Match by recent activity (within 24 hours of project's last modified)
+                // Match by recent activity (within 96 hours of project's last modified)
                 // Find the CLOSEST match, not just the first one
-                let minTimeDiff = 24 * 60 * 60 * 1000;
+                let minTimeDiff = 96 * 60 * 60 * 1000;
                 for (const [, project] of projectsByHash) {
                     const timeDiff = Math.abs(project.lastModified.getTime() - lastActivityAt.getTime());
                     if (timeDiff < minTimeDiff) {

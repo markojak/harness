@@ -225,7 +225,7 @@ export async function getAllSessions() {
         let projectName = null;
         let projectPath = null;
         // Check if any project was recently modified (heuristic)
-        let minTimeDiff = 24 * 60 * 60 * 1000;
+        let minTimeDiff = 96 * 60 * 60 * 1000;
         for (const [, project] of projects) {
             const timeDiff = Math.abs(project.lastModified.getTime() - lastActivity.getTime());
             if (timeDiff < minTimeDiff) { // Within 24 hours (checked by init value)

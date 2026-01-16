@@ -148,6 +148,15 @@ Override paths if your tools store sessions elsewhere:
 | ---------- | ------- | ------- |
 | Node.js    | ≥20.0.0 | Runtime |
 
+## Provider Specific Details
+
+### Antigravity (Gemini)
+
+Antigravity sessions are matched to projects based on `code_tracker` directory timestamps.
+
+- **Project Matching**: Harness uses a heuristic algorithm with a **96-hour window** to link sessions to the most recently modified project folder.
+- **Active Status**: You may see projects listed as "Active" even if you haven't opened them recently. This is because Antigravity's background services periodically scan and update project timestamps in `~/.gemini/antigravity/code_tracker`, which Harness detects as activity. This is expected behavior to ensure accurate project linking.
+
 ### Recommended
 
 | Dependency | Version | Install                  | Purpose                    |

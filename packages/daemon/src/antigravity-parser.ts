@@ -267,7 +267,7 @@ export async function getAllSessions(): Promise<AntigravitySession[]> {
     let projectPath: string | null = null;
     
     // Check if any project was recently modified (heuristic)
-    let minTimeDiff = 24 * 60 * 60 * 1000;
+    let minTimeDiff = 96 * 60 * 60 * 1000;
     
     for (const [, project] of projects) {
       const timeDiff = Math.abs(project.lastModified.getTime() - lastActivity.getTime());

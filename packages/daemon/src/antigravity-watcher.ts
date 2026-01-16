@@ -286,7 +286,7 @@ export class AntigravityWatcher extends EventEmitter {
       let projectPath: string | null = null;
 
       // Find most recently modified project that matches this session's timing (closest match)
-      let minTimeDiff = 24 * 60 * 60 * 1000;
+      let minTimeDiff = 96 * 60 * 60 * 1000;
       
       for (const [, project] of projects) {
         const timeDiff = Math.abs(project.lastModified.getTime() - lastActivity.getTime());

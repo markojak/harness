@@ -1,15 +1,15 @@
 /**
  * ProviderIcon - Shows Claude/Codex logo with optional pulse animation
- * 
+ *
  * Providers:
  * - claude: Anthropic "A\" logo
  * - codex: OpenAI hexagonal flower logo
- * 
+ *
  * Animation:
  * - Pulses when session is in "waiting" state
  */
 
-export type Provider = "claude" | "codex" | "opencode";
+export type Provider = "claude" | "codex" | "opencode" | "antigravity";
 
 interface ProviderIconProps {
   provider: Provider;
@@ -27,7 +27,13 @@ const pulseKeyframes = `
 `;
 
 // Anthropic/Claude logo - "A\" mark
-const ClaudeLogo = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+const ClaudeLogo = ({
+  size = 16,
+  color = "currentColor",
+}: {
+  size?: number;
+  color?: string;
+}) => (
   <svg
     width={size}
     height={size}
@@ -40,7 +46,13 @@ const ClaudeLogo = ({ size = 16, color = "currentColor" }: { size?: number; colo
 );
 
 // OpenAI/Codex logo - hexagonal flower
-const CodexLogo = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+const CodexLogo = ({
+  size = 16,
+  color = "currentColor",
+}: {
+  size?: number;
+  color?: string;
+}) => (
   <svg
     width={size}
     height={size}
@@ -53,7 +65,13 @@ const CodexLogo = ({ size = 16, color = "currentColor" }: { size?: number; color
 );
 
 // OpenCode logo - based on official brand (geometric square design)
-const OpenCodeLogo = ({ size = 16, color = "currentColor" }: { size?: number; color?: string }) => (
+const OpenCodeLogo = ({
+  size = 16,
+  color = "currentColor",
+}: {
+  size?: number;
+  color?: string;
+}) => (
   <svg
     width={size}
     height={size}
@@ -62,13 +80,33 @@ const OpenCodeLogo = ({ size = 16, color = "currentColor" }: { size?: number; co
     xmlns="http://www.w3.org/2000/svg"
   >
     {/* Outer frame */}
-    <path 
-      d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V5H19V19Z" 
+    <path
+      d="M19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V5H19V19Z"
       fill={color}
     />
     {/* Inner square */}
-    <path 
-      d="M15 9H9V15H15V9Z" 
+    <path d="M15 9H9V15H15V9Z" fill={color} />
+  </svg>
+);
+
+// Antigravity/Gemini logo - stylized "G" spiral
+const AntigravityLogo = ({
+  size = 16,
+  color = "currentColor",
+}: {
+  size?: number;
+  color?: string;
+}) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    {/* Gemini-style dual wave */}
+    <path
+      d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93s3.06-7.44 7-7.93v15.86zm2 0V4.07c3.94.49 7 3.85 7 7.93s-3.06 7.44-7 7.93z"
       fill={color}
     />
   </svg>
@@ -77,16 +115,20 @@ const OpenCodeLogo = ({ size = 16, color = "currentColor" }: { size?: number; co
 // Provider colors
 const PROVIDER_COLORS = {
   claude: {
-    default: "#D4A574",    // Warm tan/orange (Anthropic brand)
+    default: "#D4A574", // Warm tan/orange (Anthropic brand)
     waiting: "#D4A574",
   },
   codex: {
-    default: "#10A37F",    // OpenAI green
+    default: "#10A37F", // OpenAI green
     waiting: "#10A37F",
   },
   opencode: {
-    default: "#4285F4",    // Google blue (Gemini)
+    default: "#4285F4", // Google blue (Gemini)
     waiting: "#4285F4",
+  },
+  antigravity: {
+    default: "#8B5CF6", // Purple (DeepMind/Antigravity)
+    waiting: "#8B5CF6",
   },
 };
 
@@ -94,26 +136,34 @@ const PROVIDER_LOGOS = {
   claude: ClaudeLogo,
   codex: CodexLogo,
   opencode: OpenCodeLogo,
+  antigravity: AntigravityLogo,
 };
 
 const PROVIDER_NAMES = {
   claude: "Claude (Anthropic)",
   codex: "Codex (OpenAI)",
   opencode: "OpenCode",
+  antigravity: "Antigravity (Gemini)",
 };
 
 // Map model providers to colors/icons for OpenCode
-export const MODEL_PROVIDER_INFO: Record<string, { color: string; shortName: string }> = {
+export const MODEL_PROVIDER_INFO: Record<
+  string,
+  { color: string; shortName: string }
+> = {
   anthropic: { color: "#D4A574", shortName: "Claude" },
   openai: { color: "#10A37F", shortName: "GPT" },
   google: { color: "#4285F4", shortName: "Gemini" },
-  opencode: { color: "#4285F4", shortName: "Gemini" },  // default
+  opencode: { color: "#4285F4", shortName: "Gemini" }, // default
 };
 
 // Helper to get friendly model display name
-export function getModelDisplayName(modelId?: string | null, _modelProvider?: string | null): string {
+export function getModelDisplayName(
+  modelId?: string | null,
+  _modelProvider?: string | null,
+): string {
   if (!modelId) return "";
-  
+
   // Shorten common model names
   const shortNames: Record<string, string> = {
     "claude-3-5-sonnet-20241022": "Sonnet 3.5",
@@ -129,11 +179,16 @@ export function getModelDisplayName(modelId?: string | null, _modelProvider?: st
     "gemini-2.5-pro": "Gemini 2.5 Pro",
     "gemini-exp-1206": "Gemini Exp",
   };
-  
+
   return shortNames[modelId] || modelId.split("-").slice(0, 3).join("-");
 }
 
-export function ProviderIcon({ provider, size = 16, waiting = false, className }: ProviderIconProps) {
+export function ProviderIcon({
+  provider,
+  size = 16,
+  waiting = false,
+  className,
+}: ProviderIconProps) {
   const colors = PROVIDER_COLORS[provider] || PROVIDER_COLORS.claude;
   const Logo = PROVIDER_LOGOS[provider] || ClaudeLogo;
 
@@ -157,22 +212,26 @@ export function ProviderIcon({ provider, size = 16, waiting = false, className }
 }
 
 // Compact version for session lists
-export function ProviderBadge({ 
-  provider, 
+export function ProviderBadge({
+  provider,
   waiting = false,
   modelId,
   modelProvider,
-}: { 
-  provider: Provider; 
+}: {
+  provider: Provider;
   waiting?: boolean;
   modelId?: string | null;
   modelProvider?: string | null;
 }) {
   // For OpenCode, show the actual model's provider icon if different
   const isOpenCode = provider === "opencode";
-  const providerInfo = modelProvider ? MODEL_PROVIDER_INFO[modelProvider] : null;
-  const modelName = isOpenCode ? getModelDisplayName(modelId, modelProvider) : null;
-  
+  const providerInfo = modelProvider
+    ? MODEL_PROVIDER_INFO[modelProvider]
+    : null;
+  const modelName = isOpenCode
+    ? getModelDisplayName(modelId, modelProvider)
+    : null;
+
   return (
     <span
       style={{
@@ -200,14 +259,21 @@ export function ProviderBadge({
 }
 
 // With label for detailed views
-export function ProviderLabel({ provider, waiting = false }: { provider: Provider; waiting?: boolean }) {
+export function ProviderLabel({
+  provider,
+  waiting = false,
+}: {
+  provider: Provider;
+  waiting?: boolean;
+}) {
   const labels: Record<Provider, string> = {
     claude: "Claude",
     codex: "Codex",
     opencode: "OpenCode",
+    antigravity: "Antigravity",
   };
   const label = labels[provider] || provider;
-  
+
   return (
     <span
       style={{

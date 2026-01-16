@@ -7,6 +7,7 @@ import { DurableStreamTestServer } from "@durable-streams/server";
 import { DurableStream } from "@durable-streams/client";
 import { sessionsStateSchema, type Session, type RecentOutput, type PRInfo } from "./schema.js";
 import type { SessionState } from "./watcher.js";
+import type { AntigravitySessionState } from "./antigravity-watcher.js";
 import type { LogEntry } from "./types.js";
 import { generateAISummary, generateGoal } from "./summarizer.js";
 import { queuePRCheck, getCachedPR, setOnPRUpdate, stopAllPolling, clearPRForSession } from "./github.js";
@@ -191,6 +192,63 @@ export class StreamServer {
     };
 
     const event = sessionsStateSchema.sessions.update({ value: session });
+    await this.stream.append(event);
+  }
+
+  /**
+   * Publish an Antigravity session to the stream
+   */
+  async publishAntigravitySession(
+    sessionState: AntigravitySessionState,
+    operation: "insert" | "update" | "delete"
+  ): Promise<void> {
+    if (!this.stream) {
+      throw new Error("Server not started");
+    }
+
+    // Map Antigravity status to session status
+    const statusMap: Record<string, "working" | "waiting" | "idle"> = {
+      working: "working",
+      active: "working",
+      idle: "idle",
+      unknown: "idle",
+    };
+
+    const session: Session = {
+      sessionId: sessionState.sessionId,
+      provider: "antigravity",
+      cwd: sessionState.projectPath || "~/.gemini/antigravity",
+      gitBranch: null,
+      gitRepoUrl: null,
+      gitRepoId: sessionState.projectName ? `antigravity/${sessionState.projectName}` : null,
+      originalPrompt: sessionState.artifacts.length > 0 
+        ? `Working on ${sessionState.artifacts.length} artifacts` 
+        : "Antigravity session",
+      status: statusMap[sessionState.status] || "idle",
+      lastActivityAt: sessionState.lastActivity.toISOString(),
+      messageCount: 0,
+      hasPendingToolUse: false,
+      pendingTool: null,
+      goal: sessionState.projectName || "Antigravity Session",
+      summary: sessionState.artifacts.length > 0 
+        ? `Artifacts: ${sessionState.artifacts.slice(0, 3).join(", ")}${sessionState.artifacts.length > 3 ? "..." : ""}`
+        : "Active Antigravity conversation",
+      recentOutput: [],
+      pr: null,
+    };
+
+    let event;
+    if (operation === "insert") {
+      event = sessionsStateSchema.sessions.insert({ value: session });
+    } else if (operation === "update") {
+      event = sessionsStateSchema.sessions.update({ value: session });
+    } else {
+      event = sessionsStateSchema.sessions.delete({
+        key: session.sessionId,
+        oldValue: session,
+      });
+    }
+
     await this.stream.append(event);
   }
 }

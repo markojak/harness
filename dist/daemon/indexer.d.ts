@@ -1,7 +1,7 @@
 /**
  * Full session indexer - scans ALL sessions, not just recent
  */
-export type Provider = "claude" | "codex" | "opencode";
+export type Provider = "claude" | "codex" | "opencode" | "antigravity";
 export interface IndexedSession {
     sessionId: string;
     provider: Provider;

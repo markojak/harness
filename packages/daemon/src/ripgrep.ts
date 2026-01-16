@@ -3,13 +3,10 @@
  * Falls back to Node.js if ripgrep is not available
  */
 
-import { exec } from "node:child_process";
-import { promisify } from "node:util";
+import { spawn } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { hasRipgrepAsync } from "./deps.js";
-
-const execAsync = promisify(exec);
 
 const CLAUDE_PROJECTS_DIR = `${process.env.HOME}/.claude/projects`;
 
@@ -17,6 +14,50 @@ export interface SearchMatch {
   file: string;
   line: number;
   content: string;
+}
+
+/**
+ * Security: Sanitize search pattern to prevent injection
+ * Only allow alphanumeric, spaces, and basic punctuation
+ */
+function sanitizePattern(pattern: string): string {
+  return pattern.replace(/[^\w\s\-_.@#]/g, "");
+}
+
+/**
+ * Execute ripgrep with spawn (secure - no shell interpretation)
+ */
+function spawnRipgrep(args: string[]): Promise<{ stdout: string; exitCode: number }> {
+  return new Promise((resolve, reject) => {
+    const rg = spawn("rg", args, {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+
+    rg.stdout.on("data", (data: Buffer) => {
+      stdout += data.toString();
+    });
+
+    rg.stderr.on("data", (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    rg.on("error", (err: Error) => {
+      reject(err);
+    });
+
+    rg.on("close", (code: number | null) => {
+      resolve({ stdout, exitCode: code ?? 0 });
+    });
+
+    // Timeout after 30 seconds
+    setTimeout(() => {
+      rg.kill();
+      reject(new Error("ripgrep timeout"));
+    }, 30_000);
+  });
 }
 
 /**
@@ -28,8 +69,15 @@ async function ripgrepSearch(
 ): Promise<SearchMatch[]> {
   const { maxResults = 100, filesOnly = false } = options;
 
+  // Security: Sanitize pattern to prevent command injection
+  const sanitizedPattern = sanitizePattern(pattern);
+  if (!sanitizedPattern || sanitizedPattern.length < 2) {
+    return [];
+  }
+
   try {
-    const flags = [
+    // Security: Use spawn with argument array instead of shell string
+    const args = [
       "--json",
       "--max-count", "10",           // Max matches per file
       "-g", "*.jsonl",               // Only JSONL files
@@ -37,15 +85,18 @@ async function ripgrepSearch(
     ];
 
     if (filesOnly) {
-      flags.push("-l");              // Files only, no content
+      args.push("-l");              // Files only, no content
     }
 
-    const cmd = `rg ${flags.join(" ")} ${JSON.stringify(pattern)} ${CLAUDE_PROJECTS_DIR}`;
-    
-    const { stdout } = await execAsync(cmd, {
-      maxBuffer: 50 * 1024 * 1024,   // 50MB buffer
-      timeout: 30_000,                // 30s timeout
-    });
+    // Add pattern and directory as separate arguments (secure)
+    args.push(sanitizedPattern, CLAUDE_PROJECTS_DIR);
+
+    const { stdout, exitCode } = await spawnRipgrep(args);
+
+    // Exit code 1 means no matches (not an error)
+    if (exitCode !== 0 && exitCode !== 1) {
+      return [];
+    }
 
     const matches: SearchMatch[] = [];
     

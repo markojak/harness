@@ -1,6 +1,6 @@
 import { createServer, request as httpRequest } from "node:http";
 import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "node:fs";
-import { join, extname, dirname } from "node:path";
+import { join, extname, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import os from "node:os";
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -64,6 +64,10 @@ const DEFAULT_CONFIG = {
             enabled: true,
             path: join(HOME, ".local/share/opencode/storage"),
         },
+        antigravity: {
+            enabled: true,
+            path: join(HOME, ".gemini/antigravity"),
+        },
     },
     port: 4450,
     host: "127.0.0.1",
@@ -83,6 +87,7 @@ export function getConfig() {
                     claude: { ...DEFAULT_CONFIG.providers.claude, ...parsed.providers?.claude },
                     codex: { ...DEFAULT_CONFIG.providers.codex, ...parsed.providers?.codex },
                     opencode: { ...DEFAULT_CONFIG.providers.opencode, ...parsed.providers?.opencode },
+                    antigravity: { ...DEFAULT_CONFIG.providers.antigravity, ...parsed.providers?.antigravity },
                 },
             };
         }
@@ -185,10 +190,24 @@ function getSystemStats() {
     };
 }
 export function startStatsServer(port = 4451) {
+    // Security: Define allowed origins for CORS (localhost only)
+    const allowedOrigins = [
+        `http://localhost:${port}`,
+        `http://127.0.0.1:${port}`,
+        `http://localhost:${port - 1}`,
+        `http://127.0.0.1:${port - 1}`,
+    ];
     const server = createServer(async (req, res) => {
-        // CORS headers
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+        // Security: CORS with origin whitelist instead of wildcard
+        const origin = req.headers.origin;
+        if (origin && allowedOrigins.includes(origin)) {
+            res.setHeader("Access-Control-Allow-Origin", origin);
+        }
+        else if (!origin) {
+            // Allow requests without origin (same-origin, curl, etc.)
+            res.setHeader("Access-Control-Allow-Origin", `http://localhost:${port}`);
+        }
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
         res.setHeader("Access-Control-Allow-Headers", "Content-Type");
         if (req.method === "OPTIONS") {
             res.writeHead(204);
@@ -502,9 +521,27 @@ export function startStatsServer(port = 4451) {
             let filePath = req.url === "/" ? "/index.html" : req.url || "/index.html";
             // Remove query string
             filePath = filePath.split("?")[0];
-            const fullPath = join(UI_DIST, filePath);
-            // Security: don't serve files outside UI_DIST
-            if (fullPath.startsWith(UI_DIST) && existsSync(fullPath)) {
+            // Security: Decode URI and normalize path to prevent traversal attacks
+            try {
+                filePath = decodeURIComponent(filePath);
+            }
+            catch {
+                // Invalid URI encoding
+                res.writeHead(400);
+                res.end("Bad request");
+                return;
+            }
+            // Security: Use resolve() to get absolute path, then verify it's within UI_DIST
+            // This prevents ../ traversal attacks even with encoded characters
+            const resolvedUiDist = resolve(UI_DIST);
+            const fullPath = resolve(resolvedUiDist, "." + filePath);
+            // Security: Verify the resolved path is still within UI_DIST
+            if (!fullPath.startsWith(resolvedUiDist + "/") && fullPath !== resolvedUiDist) {
+                res.writeHead(403);
+                res.end("Forbidden");
+                return;
+            }
+            if (existsSync(fullPath)) {
                 try {
                     const stat = statSync(fullPath);
                     if (stat.isFile()) {
@@ -522,7 +559,7 @@ export function startStatsServer(port = 4451) {
             }
             // SPA fallback - serve index.html for client-side routing
             if (!filePath.includes(".")) {
-                const indexPath = join(UI_DIST, "index.html");
+                const indexPath = resolve(resolvedUiDist, "index.html");
                 if (existsSync(indexPath)) {
                     const content = readFileSync(indexPath);
                     res.writeHead(200, { "Content-Type": "text/html" });

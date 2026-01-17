@@ -19,12 +19,13 @@ const OPTIONS: { value: ProviderFilterValue; label: string }[] = [
   { value: "claude", label: "Claude" },
   { value: "codex", label: "Codex" },
   { value: "opencode", label: "OpenCode" },
+  { value: "antigravity", label: "Antigravity" },
 ];
 
 export function ProviderFilter({ value, onChange }: ProviderFilterProps) {
   const [open, setOpen] = useState(false);
 
-  const currentLabel = OPTIONS.find(o => o.value === value)?.label || "All";
+  const currentLabel = OPTIONS.find((o) => o.value === value)?.label || "All";
 
   return (
     <Box style={{ position: "relative" }}>
@@ -47,7 +48,10 @@ export function ProviderFilter({ value, onChange }: ProviderFilterProps) {
         <Text size="1" style={{ color: "var(--text-secondary)" }}>
           {currentLabel}
         </Text>
-        <Text size="1" style={{ color: "var(--text-tertiary)", marginLeft: "auto" }}>
+        <Text
+          size="1"
+          style={{ color: "var(--text-tertiary)", marginLeft: "auto" }}
+        >
           ▾
         </Text>
       </Flex>
@@ -92,7 +96,10 @@ export function ProviderFilter({ value, onChange }: ProviderFilterProps) {
                 py="2"
                 style={{
                   cursor: "pointer",
-                  background: value === option.value ? "var(--bg-surface)" : "transparent",
+                  background:
+                    value === option.value
+                      ? "var(--bg-surface)"
+                      : "transparent",
                 }}
                 onClick={() => {
                   onChange(option.value);
@@ -108,7 +115,10 @@ export function ProviderFilter({ value, onChange }: ProviderFilterProps) {
                   {option.label}
                 </Text>
                 {value === option.value && (
-                  <Text size="1" style={{ color: "var(--accent-green)", marginLeft: "auto" }}>
+                  <Text
+                    size="1"
+                    style={{ color: "var(--accent-green)", marginLeft: "auto" }}
+                  >
                     ✓
                   </Text>
                 )}

@@ -236,6 +236,13 @@ export async function indexAllSessions() {
     catch (error) {
         console.error("Failed to index OpenCode sessions:", error);
     }
+    // Index Antigravity sessions
+    try {
+        await indexAntigravitySessions(sessions, projectMap);
+    }
+    catch (error) {
+        console.error("Failed to index Antigravity sessions:", error);
+    }
     // Build project summaries
     const projects = [];
     for (const [projectId, data] of projectMap) {
@@ -524,6 +531,127 @@ async function indexOpenCodeSessions(sessions, projectMap) {
                 }
                 catch { }
             }
+        }
+    }
+    catch { }
+}
+/**
+ * Index Antigravity sessions from ~/.gemini/antigravity/
+ */
+async function indexAntigravitySessions(sessions, projectMap) {
+    const antigravityDir = join(process.env.HOME || "", ".gemini", "antigravity");
+    const conversationsDir = join(antigravityDir, "conversations");
+    const annotationsDir = join(antigravityDir, "annotations");
+    const brainDir = join(antigravityDir, "brain");
+    const codeTrackerDir = join(antigravityDir, "code_tracker", "active");
+    if (!existsSync(conversationsDir))
+        return;
+    // Load project mappings from code_tracker
+    const projectsByHash = new Map();
+    try {
+        const trackerDirs = await readdir(codeTrackerDir);
+        for (const dir of trackerDirs) {
+            const lastUnderscore = dir.lastIndexOf("_");
+            if (lastUnderscore > 0) {
+                const name = dir.substring(0, lastUnderscore);
+                const hash = dir.substring(lastUnderscore + 1);
+                const dirPath = join(codeTrackerDir, dir);
+                const dirStat = await stat(dirPath).catch(() => null);
+                if (dirStat) {
+                    projectsByHash.set(hash, { name, lastModified: dirStat.mtime });
+                }
+            }
+        }
+    }
+    catch { }
+    // Get all conversation files
+    try {
+        const convFiles = await readdir(conversationsDir);
+        const pbFiles = convFiles.filter(f => f.endsWith(".pb"));
+        for (const file of pbFiles) {
+            try {
+                const sessionId = basename(file, ".pb");
+                const convPath = join(conversationsDir, file);
+                const convStat = await stat(convPath);
+                // Get annotation for last activity time
+                let lastActivityAt = convStat.mtime;
+                const annotationPath = join(annotationsDir, `${sessionId}.pbtxt`);
+                if (existsSync(annotationPath)) {
+                    try {
+                        const annotationContent = await readFile(annotationPath, "utf-8");
+                        const match = annotationContent.match(/last_user_view_time:\s*\{\s*seconds:\s*(\d+)/);
+                        if (match) {
+                            const seconds = parseInt(match[1], 10);
+                            const annotationTime = new Date(seconds * 1000);
+                            if (annotationTime > lastActivityAt) {
+                                lastActivityAt = annotationTime;
+                            }
+                        }
+                    }
+                    catch { }
+                }
+                // Get artifacts from brain directory
+                const artifacts = [];
+                const brainPath = join(brainDir, sessionId);
+                if (existsSync(brainPath)) {
+                    try {
+                        const brainFiles = await readdir(brainPath);
+                        artifacts.push(...brainFiles.filter(f => f.endsWith(".md") || f.endsWith(".png") || f.endsWith(".webp")));
+                    }
+                    catch { }
+                }
+                // Try to find matching project from code_tracker
+                let projectName = "Antigravity";
+                // Default to a single "Misc" project for sessions without a clear project match
+                // This prevents creating a separate project for every single session
+                let projectId = "antigravity-misc";
+                // Match by recent activity (within 96 hours of project's last modified)
+                // Find the CLOSEST match, not just the first one
+                let minTimeDiff = 96 * 60 * 60 * 1000;
+                for (const [, project] of projectsByHash) {
+                    const timeDiff = Math.abs(project.lastModified.getTime() - lastActivityAt.getTime());
+                    if (timeDiff < minTimeDiff) {
+                        minTimeDiff = timeDiff;
+                        projectName = project.name;
+                        projectId = `antigravity/${project.name}`;
+                    }
+                }
+                // Check if active (last 5 min)
+                const isActive = Date.now() - lastActivityAt.getTime() < 5 * 60 * 1000;
+                const session = {
+                    sessionId,
+                    provider: "antigravity",
+                    filepath: convPath,
+                    projectId,
+                    projectName,
+                    gitRepoId: projectId.startsWith("antigravity/") ? projectId : null,
+                    gitRepoUrl: null,
+                    cwd: antigravityDir,
+                    gitBranch: null,
+                    originalPrompt: artifacts.length > 0
+                        ? `Working on ${artifacts.length} artifacts`
+                        : "Antigravity session",
+                    goal: projectName,
+                    startedAt: convStat.birthtime.toISOString(),
+                    lastActivityAt: lastActivityAt.toISOString(),
+                    messageCount: 0,
+                    isActive,
+                    isAgent: false,
+                    parentSessionId: null,
+                };
+                sessions.push(session);
+                // Group by project
+                if (!projectMap.has(projectId)) {
+                    projectMap.set(projectId, {
+                        sessions: [],
+                        gitRepoId: session.gitRepoId,
+                        gitRepoUrl: null,
+                        projectName,
+                    });
+                }
+                projectMap.get(projectId).sessions.push(session);
+            }
+            catch { }
         }
     }
     catch { }

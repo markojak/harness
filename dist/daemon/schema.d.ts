@@ -1,14 +1,15 @@
 import { z } from "zod";
 export declare const ProviderSchema: z.ZodEnum<{
+    antigravity: "antigravity";
     claude: "claude";
     codex: "codex";
     opencode: "opencode";
 }>;
 export type Provider = z.infer<typeof ProviderSchema>;
 export declare const SessionStatusSchema: z.ZodEnum<{
+    idle: "idle";
     working: "working";
     waiting: "waiting";
-    idle: "idle";
 }>;
 export type SessionStatus = z.infer<typeof SessionStatusSchema>;
 export declare const PendingToolSchema: z.ZodObject<{
@@ -26,8 +27,8 @@ export declare const RecentOutputSchema: z.ZodObject<{
 }, z.core.$strip>;
 export type RecentOutput = z.infer<typeof RecentOutputSchema>;
 export declare const CIStatusSchema: z.ZodEnum<{
-    pending: "pending";
     unknown: "unknown";
+    pending: "pending";
     running: "running";
     success: "success";
     failure: "failure";
@@ -39,8 +40,8 @@ export declare const PRInfoSchema: z.ZodObject<{
     url: z.ZodString;
     title: z.ZodString;
     ciStatus: z.ZodEnum<{
-        pending: "pending";
         unknown: "unknown";
+        pending: "pending";
         running: "running";
         success: "success";
         failure: "failure";
@@ -49,8 +50,8 @@ export declare const PRInfoSchema: z.ZodObject<{
     ciChecks: z.ZodArray<z.ZodObject<{
         name: z.ZodString;
         status: z.ZodEnum<{
-            pending: "pending";
             unknown: "unknown";
+            pending: "pending";
             running: "running";
             success: "success";
             failure: "failure";
@@ -64,6 +65,7 @@ export type PRInfo = z.infer<typeof PRInfoSchema>;
 export declare const SessionSchema: z.ZodObject<{
     sessionId: z.ZodString;
     provider: z.ZodDefault<z.ZodEnum<{
+        antigravity: "antigravity";
         claude: "claude";
         codex: "codex";
         opencode: "opencode";
@@ -74,9 +76,9 @@ export declare const SessionSchema: z.ZodObject<{
     gitRepoId: z.ZodNullable<z.ZodString>;
     originalPrompt: z.ZodString;
     status: z.ZodEnum<{
+        idle: "idle";
         working: "working";
         waiting: "waiting";
-        idle: "idle";
     }>;
     lastActivityAt: z.ZodString;
     messageCount: z.ZodNumber;
@@ -100,8 +102,8 @@ export declare const SessionSchema: z.ZodObject<{
         url: z.ZodString;
         title: z.ZodString;
         ciStatus: z.ZodEnum<{
-            pending: "pending";
             unknown: "unknown";
+            pending: "pending";
             running: "running";
             success: "success";
             failure: "failure";
@@ -110,8 +112,8 @@ export declare const SessionSchema: z.ZodObject<{
         ciChecks: z.ZodArray<z.ZodObject<{
             name: z.ZodString;
             status: z.ZodEnum<{
-                pending: "pending";
                 unknown: "unknown";
+                pending: "pending";
                 running: "running";
                 success: "success";
                 failure: "failure";
@@ -130,6 +132,7 @@ export declare const sessionsStateSchema: import("@durable-streams/state").State
         schema: z.ZodObject<{
             sessionId: z.ZodString;
             provider: z.ZodDefault<z.ZodEnum<{
+                antigravity: "antigravity";
                 claude: "claude";
                 codex: "codex";
                 opencode: "opencode";
@@ -140,9 +143,9 @@ export declare const sessionsStateSchema: import("@durable-streams/state").State
             gitRepoId: z.ZodNullable<z.ZodString>;
             originalPrompt: z.ZodString;
             status: z.ZodEnum<{
+                idle: "idle";
                 working: "working";
                 waiting: "waiting";
-                idle: "idle";
             }>;
             lastActivityAt: z.ZodString;
             messageCount: z.ZodNumber;
@@ -166,8 +169,8 @@ export declare const sessionsStateSchema: import("@durable-streams/state").State
                 url: z.ZodString;
                 title: z.ZodString;
                 ciStatus: z.ZodEnum<{
-                    pending: "pending";
                     unknown: "unknown";
+                    pending: "pending";
                     running: "running";
                     success: "success";
                     failure: "failure";
@@ -176,8 +179,8 @@ export declare const sessionsStateSchema: import("@durable-streams/state").State
                 ciChecks: z.ZodArray<z.ZodObject<{
                     name: z.ZodString;
                     status: z.ZodEnum<{
-                        pending: "pending";
                         unknown: "unknown";
+                        pending: "pending";
                         running: "running";
                         success: "success";
                         failure: "failure";

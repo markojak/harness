@@ -4,6 +4,7 @@
  */
 import { type PRInfo } from "./schema.js";
 import type { SessionState } from "./watcher.js";
+import type { AntigravitySessionState } from "./antigravity-watcher.js";
 export interface StreamServerOptions {
     port?: number;
 }
@@ -25,4 +26,8 @@ export declare class StreamServer {
      * Publish session with updated PR info (called from PR update callback)
      */
     publishSessionWithPR(sessionState: SessionState, pr: PRInfo | null): Promise<void>;
+    /**
+     * Publish an Antigravity session to the stream
+     */
+    publishAntigravitySession(sessionState: AntigravitySessionState, operation: "insert" | "update" | "delete"): Promise<void>;
 }

@@ -1,6 +1,6 @@
 # AGENTS.md - Harness AI
 
-> For AI coding assistants. Symlink CLAUDE.md → AGENTS.md if using Claude Code.
+> For AI coding assistants. Symlink CLAUDE.md / GEMINI.md → AGENTS.md if using Claude Code or Gemini.
 
 ## Project Overview
 

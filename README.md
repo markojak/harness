@@ -2,7 +2,7 @@
 
 **A unified cockpit for your AI coding agents.**
 
-Harness gives you real-time visibility into every AI coding session across Claude Code, OpenAI Codex CLI, and OpenCode. Monitor multiple agents, track which models you're using, search session history, and never lose context on what your AI assistants are doing.
+Harness gives you real-time visibility into every AI coding session across Claude Code, OpenAI Codex CLI, OpenCode, and Antigravity (Gemini). Monitor multiple agents, track which models you're using, search session history, and never lose context on what your AI assistants are doing.
 
 ## Supported Providers
 

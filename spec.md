@@ -4,7 +4,7 @@ A real-time dashboard for tracking Claude Code sessions across repositories, usi
 
 ## Overview
 
-This app watches Claude Code session logs, streams them to a Durable Streams server, and presents them in a Kanban-style UI organized by repository.
+This app watches session logs from various AI providers (Claude Code, Antigravity, etc.), streams them to a Durable Streams server, and presents them in a Kanban-style UI organized by repository.
 
 **Key Features:**
 

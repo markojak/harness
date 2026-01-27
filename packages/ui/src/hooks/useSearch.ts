@@ -8,7 +8,7 @@ import type { SearchResult } from "../components/SearchResults";
 const API_BASE = "";
 const DEBOUNCE_MS = 200;
 
-export type ProviderFilter = "all" | "claude" | "codex" | "opencode";
+export type ProviderFilter = "all" | "claude" | "codex" | "opencode" | "antigravity";
 
 export function useSearch() {
   const [query, setQuery] = useState("");

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createStateSchema } from "@durable-streams/state";
 // Provider enum (Claude, Codex, OpenCode, etc.)
-export const ProviderSchema = z.enum(["claude", "codex", "opencode"]);
+export const ProviderSchema = z.enum(["claude", "codex", "opencode", "antigravity"]);
 // Session status enum
 export const SessionStatusSchema = z.enum(["working", "waiting", "idle"]);
 // Pending tool info

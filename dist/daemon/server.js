@@ -168,6 +168,57 @@ export class StreamServer {
         const event = sessionsStateSchema.sessions.update({ value: session });
         await this.stream.append(event);
     }
+    /**
+     * Publish an Antigravity session to the stream
+     */
+    async publishAntigravitySession(sessionState, operation) {
+        if (!this.stream) {
+            throw new Error("Server not started");
+        }
+        // Map Antigravity status to session status
+        const statusMap = {
+            working: "working",
+            active: "working",
+            idle: "idle",
+            unknown: "idle",
+        };
+        const session = {
+            sessionId: sessionState.sessionId,
+            provider: "antigravity",
+            cwd: sessionState.projectPath || "~/.gemini/antigravity",
+            gitBranch: null,
+            gitRepoUrl: null,
+            gitRepoId: sessionState.projectName ? `antigravity/${sessionState.projectName}` : null,
+            originalPrompt: sessionState.artifacts.length > 0
+                ? `Working on ${sessionState.artifacts.length} artifacts`
+                : "Antigravity session",
+            status: statusMap[sessionState.status] || "idle",
+            lastActivityAt: sessionState.lastActivity.toISOString(),
+            messageCount: 0,
+            hasPendingToolUse: false,
+            pendingTool: null,
+            goal: sessionState.projectName || "Antigravity Session",
+            summary: sessionState.artifacts.length > 0
+                ? `Artifacts: ${sessionState.artifacts.slice(0, 3).join(", ")}${sessionState.artifacts.length > 3 ? "..." : ""}`
+                : "Active Antigravity conversation",
+            recentOutput: [],
+            pr: null,
+        };
+        let event;
+        if (operation === "insert") {
+            event = sessionsStateSchema.sessions.insert({ value: session });
+        }
+        else if (operation === "update") {
+            event = sessionsStateSchema.sessions.update({ value: session });
+        }
+        else {
+            event = sessionsStateSchema.sessions.delete({
+                key: session.sessionId,
+                oldValue: session,
+            });
+        }
+        await this.stream.append(event);
+    }
 }
 /**
  * Extract recent output from entries for live view

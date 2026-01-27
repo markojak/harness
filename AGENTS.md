@@ -1,10 +1,10 @@
 # AGENTS.md - Harness AI
 
-> For AI coding assistants. Symlink CLAUDE.md → AGENTS.md if using Claude Code.
+> For AI coding assistants. Symlink CLAUDE.md / GEMINI.md → AGENTS.md if using Claude Code or Gemini.
 
 ## Project Overview
 
-**Harness AI** is a universal dashboard for AI coding sessions. It watches session files from multiple providers (Claude Code, Codex CLI, OpenCode), indexes them for search, and provides a real-time web UI.
+**Harness AI** is a universal dashboard for AI coding sessions. It watches session files from multiple providers (Claude Code, Codex CLI, OpenCode, Antigravity), indexes them for search, and provides a real-time web UI.
 
 ## First Steps
 
@@ -54,24 +54,24 @@ harness/
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Runtime | Node.js 22+ |
-| Package Manager | pnpm (workspaces) |
-| Backend | TypeScript, better-sqlite3, chokidar, xstate, zod |
-| Frontend | React 18, Vite 7, Tailwind CSS, Radix UI |
-| Streaming | @durable-streams/* |
-| Build | esbuild (daemon), Vite (UI) |
+| Layer           | Technology                                        |
+| --------------- | ------------------------------------------------- |
+| Runtime         | Node.js 22+                                       |
+| Package Manager | pnpm (workspaces)                                 |
+| Backend         | TypeScript, better-sqlite3, chokidar, xstate, zod |
+| Frontend        | React 18, Vite 7, Tailwind CSS, Radix UI          |
+| Streaming       | @durable-streams/\*                               |
+| Build           | esbuild (daemon), Vite (UI)                       |
 
 ## Available Skills
 
 Load these for specific tasks:
 
-| Skill | When to Use |
-|-------|-------------|
-| `skills/add-provider/SKILL.md` | Adding support for a new AI tool |
-| `skills/add-api/SKILL.md` | Adding backend API endpoints |
-| `skills/add-component/SKILL.md` | Creating UI components |
+| Skill                           | When to Use                      |
+| ------------------------------- | -------------------------------- |
+| `skills/add-provider/SKILL.md`  | Adding support for a new AI tool |
+| `skills/add-api/SKILL.md`       | Adding backend API endpoints     |
+| `skills/add-component/SKILL.md` | Creating UI components           |
 
 ## Key Commands
 
@@ -97,16 +97,16 @@ curl http://localhost:4451/session/<id>
 
 ## API Endpoints (port 4451)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | UI (static files) |
-| `/system-stats` | GET | CPU, memory, cost |
-| `/index` | GET | All indexed projects/sessions |
-| `/search?q=...&provider=...` | GET | Full-text search |
-| `/session/:id` | GET | Session detail (transcript) |
-| `/bookmarks` | GET/POST | Bookmark management |
-| `/config` | GET/POST | Configuration |
-| `/projects/hide` | POST | Hide project from UI |
+| Endpoint                     | Method   | Description                   |
+| ---------------------------- | -------- | ----------------------------- |
+| `/`                          | GET      | UI (static files)             |
+| `/system-stats`              | GET      | CPU, memory, cost             |
+| `/index`                     | GET      | All indexed projects/sessions |
+| `/search?q=...&provider=...` | GET      | Full-text search              |
+| `/session/:id`               | GET      | Session detail (transcript)   |
+| `/bookmarks`                 | GET/POST | Bookmark management           |
+| `/config`                    | GET/POST | Configuration                 |
+| `/projects/hide`             | POST     | Hide project from UI          |
 
 ## Data Flow
 
@@ -141,6 +141,7 @@ Session Files → Watcher → Parser → Indexer → SQLite
 ## Sub-Agent Coordination
 
 When spawning sub-agents for parallel work:
+
 - **Backend changes:** Work in `packages/daemon/src/`
 - **Frontend changes:** Work in `packages/ui/src/`
 - **Both need build:** Run `pnpm build` from root after changes

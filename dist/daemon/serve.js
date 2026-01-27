@@ -21,6 +21,7 @@ for (const envPath of envPaths) {
     }
 }
 import { SessionWatcher } from "./watcher.js";
+import { AntigravityWatcher } from "./antigravity-watcher.js";
 import { StreamServer } from "./server.js";
 import { formatStatus } from "./status.js";
 import { startStatsServer, updateTodayCost } from "./system-stats.js";
@@ -30,6 +31,7 @@ import { bulkIndexSessions, getSearchStats } from "./search.js";
 import { getDeps } from "./deps.js";
 import { setError } from "./errors.js";
 import { runAsJob } from "./jobs.js";
+import { isAntigravityAvailable } from "./antigravity-parser.js";
 const PORT = parseInt(process.env.PORT ?? "4450", 10);
 const MAX_AGE_HOURS = parseInt(process.env.MAX_AGE_HOURS ?? "24", 10);
 const MAX_AGE_MS = MAX_AGE_HOURS * 60 * 60 * 1000;
@@ -132,6 +134,41 @@ async function main() {
         }
         catch (error) {
             console.error(`${colors.yellow}[ERROR]${colors.reset} Failed to publish initial session:`, error);
+        }
+    }
+    // Start the Antigravity watcher (if Antigravity is installed)
+    if (isAntigravityAvailable()) {
+        const antigravityWatcher = new AntigravityWatcher({ debounceMs: 500 });
+        antigravityWatcher.on("session", async (event) => {
+            const { type, session } = event;
+            const timestamp = new Date().toLocaleTimeString();
+            const projectName = session.projectName || "Antigravity";
+            console.log(`${colors.gray}${timestamp}${colors.reset} ` +
+                `${type === "created" ? colors.green : type === "deleted" ? colors.blue : colors.yellow}[${type.toUpperCase().slice(0, 3)}]${colors.reset} ` +
+                `${colors.bold}[AG]${colors.reset} ` +
+                `${colors.cyan}${session.sessionId.slice(0, 8)}${colors.reset} ` +
+                `${colors.dim}${projectName}${colors.reset} ` +
+                `${session.status}`);
+            // Publish Antigravity sessions to stream for dashboard display
+            try {
+                const operation = type === "created" ? "insert" : type === "deleted" ? "delete" : "update";
+                await streamServer.publishAntigravitySession(session, operation);
+            }
+            catch (error) {
+                console.error(`${colors.yellow}[ERROR]${colors.reset} Failed to publish Antigravity session:`, error);
+            }
+        });
+        await antigravityWatcher.start();
+        // Publish initial Antigravity sessions
+        const antigravitySessions = antigravityWatcher.getSessions();
+        console.log(`${colors.green}✓${colors.reset} Antigravity watcher started (${antigravitySessions.length} sessions)`);
+        for (const session of antigravitySessions) {
+            try {
+                await streamServer.publishAntigravitySession(session, "insert");
+            }
+            catch (error) {
+                console.error(`${colors.yellow}[ERROR]${colors.reset} Failed to publish initial Antigravity session:`, error);
+            }
         }
     }
     // Calculate initial today's cost
